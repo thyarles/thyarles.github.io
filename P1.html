@@ -251,9 +251,9 @@ div.tocify {
 <h3><strong>Proposta da Prova 1</strong></h3>
 <p><strong>Você vai utilizar os arquivos:</strong></p>
 <ol style="list-style-type: decimal">
-<li><a href="https://raw.githubusercontent.com/thyarles/thyarles.github.io/master/est0001/prova1.csv"><code>prova1.csv</code></a></li>
-<li><a href="https://github.com/thyarles/thyarles.github.io/blob/master/est0001/dicionario-de-variaveis-prova1.pdf"><code>dicionario de variáveis prova1.pdf</code></a> (páginas 1 e 2);</li>
-<li><a href="https://github.com/thyarles/thyarles.github.io/blob/master/est0001/pib_municipios.xlsx?raw=true"><code>pib_municipios.xlsx</code></a></li>
+<li><a href="https://raw.githubusercontent.com/thyarles/www.provadigital.com.br/master/est0001/prova1.csv"><code>prova1.csv</code></a></li>
+<li><a href="https://github.com/thyarles/www.provadigital.com.br/blob/master/est0001/dicionario-de-variaveis-prova1.pdf"><code>dicionario de variáveis prova1.pdf</code></a> (páginas 1 e 2);</li>
+<li><a href="https://github.com/thyarles/www.provadigital.com.br/blob/master/est0001/pib_municipios.xlsx?raw=true"><code>pib_municipios.xlsx</code></a></li>
 </ol>
 <p><strong>Questões</strong>:</p>
 <ol style="list-style-type: decimal">
@@ -287,7 +287,7 @@ theme_set(theme_classic())</code></pre>
 <div id="solução-da-q01" class="section level3">
 <h3>Solução da <strong>Q01</strong></h3>
 <p><code>0,5 Ponto</code> Importe o arquivo prova1.csv no R.</p>
-<pre class="r"><code>u = &quot;https://raw.githubusercontent.com/thyarles/thyarles.github.io/master/est0001/prova1.csv&quot;
+<pre class="r"><code>u = &quot;https://raw.githubusercontent.com/thyarles/www.provadigital.com.br/master/est0001/prova1.csv&quot;
 Q01 &lt;- read.csv2(u,  strip.white = TRUE, na.strings = &quot;&quot;, encoding = &quot;UTF-8&quot;)
 remove(u)
 str(Q01)</code></pre>
@@ -521,9 +521,9 @@ mean(Q02$PESO[Q02$PARTO == &quot;Cesáreo&quot;])</code></pre>
 <div id="solução-da-q14" class="section level3">
 <h3>Solução da <strong>Q14</strong></h3>
 <p><code>0,5 Ponto</code> Importe o arquivo pib_municipios.xlsx e selecione apenas os dados de 2010.</p>
-<pre class="r"><code>u &lt;- &#39;https://github.com/thyarles/thyarles.github.io/blob/master/est0001/pib_municipios.xlsx?raw=true&#39;
+<pre class="r"><code>u &lt;- &#39;https://github.com/thyarles/www.provadigital.com.br/blob/master/est0001/pib_municipios.xlsx?raw=true&#39;
 httr::GET(u, httr::write_disk(pib &lt;- tempfile(fileext = &#39;.xls&#39;)))</code></pre>
-<pre><code>## Response [https://raw.githubusercontent.com/thyarles/thyarles.github.io/master/est0001/pib_municipios.xlsx]
+<pre><code>## Response [https://raw.githubusercontent.com/thyarles/www.provadigital.com.br/master/est0001/pib_municipios.xlsx]
 ##   Date: 2021-04-09 15:06
 ##   Status: 200
 ##   Content-Type: application/octet-stream
