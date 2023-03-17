@@ -1,0 +1,40 @@
+baseURL: https://www.provadigital.com.br/
+languageCode: en-us
+title: thyarles
+theme: bash
+
+Params:
+  Terminal:
+    userName: thyarles
+    pcName: t7
+    workDir: me
+    profile: whoami.txt
+    description: |
+      - Major in Computer Engineer
+      - MSc in Mechatronics Engineering
+      - Second Major in Statitics (60% done)
+      - Work to me is nothing more than a paid hobby
+  Tree:
+    folderName:
+      skills
+    files:
+      - - DevOps
+        - https://www.credly.com/users/thyarles/badges
+      - - CKS
+        - https://www.credly.com/badges/3af4a40a-4ea7-43b3-ba48-2de1849f27f3
+      - - CKA
+        - https://www.credly.com/badges/9dd468c6-4baf-4c56-88c5-a4a2b61efbbb
+      - - CKAD
+        - https://www.credly.com/badges/b7a8c8bd-92ad-4944-bbb2-bf07cf417a3e
+      - - LFCE
+        - https://www.credly.com/badges/32ac2769-4cb6-47aa-a1e5-6ac923101e22
+      - - LFCS
+        - https://www.credly.com/badges/9ce3809f-b641-48ca-8b5f-23006664dd67
+      - - GitHub
+        - https://github.com/thyarles
+      - - Linkedin
+        - https://www.linkedin.com/in/thyarles/
+      - - Smartlab
+        - https://smartlabbr.org
+      - - Hacking
+        - https://oab-ma.jusbrasil.com.br/noticias/1994233/tse-seleciona-32-hackers-para-testa-urnas-eletronicas
