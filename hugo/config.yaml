@@ -4,6 +4,7 @@ title: thyarles
 theme: bash
 
 Params:
+  description: Charles Henrique Gonçalves Santos
   Terminal:
     userName: thyarles
     pcName: t7
