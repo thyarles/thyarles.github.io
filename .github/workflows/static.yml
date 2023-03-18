@@ -34,7 +34,7 @@ jobs:
       - name: Run Hugo
         run: |
           sudo apt-get install -y hugo
-          hugo -D -d ../docs
+          hugo -D -d ../
         working-directory: hugo
       - name: Setup Pages
         uses: actions/configure-pages@v3
