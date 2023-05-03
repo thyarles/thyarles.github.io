@@ -19,6 +19,8 @@ Params:
     folderName:
       skills
     files:
+      - - '..'
+        - https://provadigital.com.br
       - - DevOps
         - https://www.credly.com/users/thyarles/badges
       - - CKS
