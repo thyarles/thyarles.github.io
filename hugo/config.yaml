@@ -6,15 +6,16 @@ theme: bash
 Params:
   description: Charles Henrique Gonçalves Santos
   Terminal:
-    userName: thyarles
+    userName: charles.santos
     pcName: t7
     workDir: me
     profile: whoami.txt
     description: |
       - Bachelor's degree in Computer Engineering
-      - Master's degree in Mechatronics Engineering
       - Second degree in Statistics (50% completed)
-      - Work for me is nothing more than a paid hobby
+      - Master's degree in Mechatronics Engineering
+      - For me, work is nothing more than a paid hobby
+      - Fluent in English (if the subject is technology)
   Tree_01:
     use: true
     folderName:
@@ -45,7 +46,7 @@ Params:
     folderName:
       publications
     files:
-      - - Low cost Braille printer 
+      - - Low cost Braille printer, 2008 
         - https://www.provadigital.com.br/docs/braille.pdf
-      - - Proposal for NCM
+      - - Proposal for NCM, 2011
         - https://www.provadigital.com.br/docs/ncm.pdf
