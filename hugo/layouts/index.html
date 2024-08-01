@@ -19,37 +19,59 @@
     {{ $description = replaceRE "\n" "<br>" $description $limit| safeHTML }}
     {{ end }}
 
-    {{ $tree := "" }}
-    {{ $leaf := "" }}
-    {{ if .Site.Params.Tree.use }}
-    {{ $tree = printf "<span id='terminal'>tree ./%s/</span>" .Site.Params.Tree.folderName | safeHTML}}
-    {{ $leaf = printf "%s<strong><span id='dir'>./%s/</span></strong><br>" $leaf .Site.Params.Tree.folderName | safeHTML}}
-        {{ range $index, $val := .Site.Params.Tree.files }}
+    {{ $tree01 := "" }}
+    {{ $leaf01 := "" }}
+    {{ if .Site.Params.Tree_01.use }}
+        {{ $tree01 = printf "<span id='terminal'>tree %s</span>" .Site.Params.Tree_01.folderName | safeHTML}}
+        {{ $leaf01 = printf "%s<strong><span id='dir'>%s</span></strong><br>" $leaf01 .Site.Params.Tree_01.folderName | safeHTML}}
+        {{ range $index, $val := .Site.Params.Tree_01.files }}
             {{ $ac := index $val 0}}
             {{ $link := index $val 1}}
-
             <!-- pass link (i.e. http, https) and mailto -->
             {{ $l := $.Site.GetPage $link }}
             {{ if $l }}
                 {{ $link = $l.Permalink}}
             {{ end }}
             
-            {{ if eq (add $index 1) (len $.Site.Params.Tree.files) }}
-            {{ $leaf = printf "<span id='terminal'>%s└── <a href='%s' target='_blank'>%s</a></span>" $leaf $link $ac | safeHTML}}
+            {{ if eq (add $index 1) (len $.Site.Params.Tree_01.files) }}
+            {{ $leaf01 = printf "<span id='terminal'>%s└── <a href='%s' target='_blank' style='text-decoration: none'>%s</a></span>" $leaf01 $link $ac | safeHTML}}
             {{ else }}
-            {{ $leaf = printf "<span id='terminal'>%s├── <a href='%s' target='_blank'>%s</a></span><br>" $leaf $link $ac | safeHTML}}
+            {{ $leaf01 = printf "<span id='terminal'>%s├── <a href='%s' target='_blank' style='text-decoration: none'>%s</a></span><br>" $leaf01 $link $ac | safeHTML}}
+            {{ end }}
+        {{ end }}
+    {{ end }}
+
+ 
+    {{ $tree02 := "" }}
+    {{ $leaf02 := "" }}
+    {{ if .Site.Params.Tree_02.use }}
+        {{ $tree02 = printf "<span id='terminal'>tree %s</span>" .Site.Params.Tree_02.folderName | safeHTML}}
+        {{ $leaf02 = printf "%s<strong><span id='dir'>%s</span></strong><br>" $leaf02 .Site.Params.Tree_02.folderName | safeHTML}}
+        {{ range $index, $val := .Site.Params.Tree_02.files }}
+            {{ $ac := index $val 0}}
+            {{ $link := index $val 1}}
+            <!-- pass link (i.e. http, https) and mailto -->
+            {{ $l := $.Site.GetPage $link }}
+            {{ if $l }}
+                {{ $link = $l.Permalink}}
+            {{ end }}
+            
+            {{ if eq (add $index 1) (len $.Site.Params.Tree_02.files) }}
+            {{ $leaf02 = printf "<span id='terminal'>%s└── <a href='%s' target='_blank' style='text-decoration: none'>%s</a></span>" $leaf02 $link $ac | safeHTML}}
+            {{ else }}
+            {{ $leaf02 = printf "<span id='terminal'>%s├── <a href='%s' target='_blank' style='text-decoration: none'>%s</a></span><br>" $leaf02 $link $ac | safeHTML}}
             {{ end }}
         {{ end }}
     {{ end }}
 
     {{ $end := $env }}
 
-    {{ $payload := delimit (slice $cd $cat $description $tree $leaf $end) "" }}
+    {{ $payload := delimit (slice $cd $cat $description $tree01 $leaf01 $tree02 $leaf02 $end) "" }}
 
     {{ $ps1Delay := $.Site.Params.Terminal.ps1Delay }}
     {{ $stdoutDelay :=  $.Site.Params.Terminal.stdoutDelay }}
     {{ $commandDelay := $.Site.Params.Terminal.commandDelay }}
 
-    {{ partial "partials/typeIndex.html" (dict "context" . "env" $env "cd" $cd "envWithDir" $envWithDir "cat" $cat "description" $description "tree" $tree "leaf" $leaf "ps1delay" $ps1Delay "stdoutdelay" $stdoutDelay "commanddelay" $commandDelay ) }}
+    {{ partial "partials/typeIndex.html" (dict "context" . "env" $env "cd" $cd "envWithDir" $envWithDir "cat" $cat "description" $description "tree01" $tree01 "leaf01" $leaf01 "tree02" $tree02 "leaf02" $leaf02 "ps1delay" $ps1Delay "stdoutdelay" $stdoutDelay "commanddelay" $commandDelay ) }}
 
 {{ end }}

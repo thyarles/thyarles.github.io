@@ -1,6 +1,6 @@
 baseURL: https://www.provadigital.com.br/
 languageCode: en-us
-title: thyarles
+title: Charles Santos
 theme: bash
 
 Params:
@@ -11,16 +11,15 @@ Params:
     workDir: me
     profile: whoami.txt
     description: |
-      - Major in Computer Engineer
-      - MSc in Mechatronics Engineering
-      - Second Major in Statistics (60% done)
-      - Work to me is nothing more than a paid hobby
-  Tree:
+      - Bachelor's degree in Computer Engineering
+      - Master's degree in Mechatronics Engineering
+      - Second degree in Statistics (50% completed)
+      - Work for me is nothing more than a paid hobby
+  Tree_01:
+    use: true
     folderName:
       skills
     files:
-      - - '..'
-        - https://provadigital.com.br
       - - DevOps
         - https://www.credly.com/users/thyarles/badges
       - - CKS
@@ -41,3 +40,12 @@ Params:
         - https://smartlabbr.org
       - - Hacking
         - https://oab-ma.jusbrasil.com.br/noticias/1994233/tse-seleciona-32-hackers-para-testa-urnas-eletronicas
+  Tree_02:
+    use: true
+    folderName:
+      publications
+    files:
+      - - Low cost Braille printer 
+        - https://www.provadigital.com.br/docs/braille.pdf
+      - - Proposal for NCM
+        - https://www.provadigital.com.br/docs/ncm.pdf
