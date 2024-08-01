@@ -12,10 +12,11 @@ Params:
     profile: whoami.txt
     description: |
       - Bachelor's degree in Computer Engineering
-      - Second degree in Statistics (50% completed)
+      - Second graduation in Statistics (on going)
       - Master's degree in Mechatronics Engineering
+      - Almost 30 years of experience in technologies
       - For me, work is nothing more than a paid hobby
-      - Fluent in English (if the subject is technology)
+      - Fluent in English (if the matter is technology)
   Tree_01:
     use: true
     folderName:
