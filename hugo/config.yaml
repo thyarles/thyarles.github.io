@@ -11,11 +11,11 @@ Params:
     workDir: me
     profile: whoami.txt
     description: |
-      - Bachelor's degree in Computer Engineering
-      - Second graduation in Statistics (on going)
-      - Master's degree in Mechatronics Engineering
-      - A lot of years of experience in technologies
-      - For me, work is nothing more than a paid hobby
+      - Bachelor's in Computer Engineering
+      - Pursuing a second degree in Statistics
+      - Master's in Mechatronics Engineering
+      - Extensive experience in technology
+      - Work is a paid hobby for me
   Tree_01:
     use: true
     folderName:
