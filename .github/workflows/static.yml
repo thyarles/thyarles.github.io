@@ -36,6 +36,8 @@ jobs:
           sudo apt-get install -y hugo
           hugo -D -d ../
         working-directory: hugo
+      - name: Fix sitemap
+        run: mv docs/sitemap.xml .
       - name: Setup Pages
         uses: actions/configure-pages@v5
       - name: Upload artifact
