@@ -5,15 +5,35 @@ theme: bash
 
 Params:
   description: |
-    charles henrique gonçalves santos
-    charles henrique gonçalves dos santos
-    charles henrique g santos
-    charles h g santos
-    Engenheiro de computação
-    tecnologia
-    prova digital
-    provadigital
-    provadigital.com.br
+    Charles Henrique Gonçalves Santos, graduado em Engenharia de Computação e mestre em Sistemas Mecatrônicos. 
+    Atualmente atuo como Analista de Infraestrutura no Ministério Público do Trabalho (MPT.mp.br), 
+    sendo o líder do time DevOps, dado a minha excelência em Linux e Kubernetes comprovada pelas certificações 
+    profissionais internacionais CKS, CKA, CKAD, LFCE e LFCS (credly.com/users/thyarles). Trabalho, ainda, há 
+    quatro anos no time de inovação onde utilizamos Hadoop (Cloudera) e modelos open source para treinarmos LLMs privados, 
+    com GPUs em cluster, para o Smartlab (smartlab.mpt.mp.br). De outubro de 2021 a junho de 2023 eu trabalhei para uma 
+    empresa internacional, VTEX, com sede em Nova York, liderando o time de engenharia de qualidade todas as comunicações 
+    eram em inglês e tudo funcionou muito bem (linkedin.com/in/thyarles). A minha trajetória na computação tem sido marcada 
+    por paixão e dedicação incessantes. No Ensino Médio, aos 15 anos, tive meu primeiro contato com um PC XT: 
+    em dois dias dominei o WordStar incluindo o malabarismo que tínhamos que fazer para acentuar as letras , 
+    o Lotus 1-2-3 e o MS-DOS 3.1; logo fui escalado para auxiliar o professor nas aulas de informática. 
+    De uma forma heróica, mesmo diante de tantas dificuldades financeiras, minha mãe me presenteou com um PC XT 
+    Turbo 10 MHz usado que vimos no jornal, financiado em parcelas a perder de vista. Prometi que não a decepcionaria 
+    e pagaria tudo de volta, assim o fiz. Aprendi a programar em Basic e, aos 16 anos, já sabia todos os comandos do MS-DOS 
+    e criava jogos. Aos 17 anos consegui uma das duas vagas de estágio na Caixa Econômica Federal, onde concorri com mais 
+    de cem estudantes: embora nunca tivesse usado o Windows 95, Word e Excel até aquele momento, de alguma forma eu sabia 
+    o que fazer e fiquei em primeiro lugar. Repeti o feito ao superar cerca de trinta candidatos para uma vaga de diagramador 
+    no Leonardo da Vinci ao obter a melhor nota em CorelDraw e PhotoPaint, softwares que até então eu nem sabia da existência; 
+    preenchi a única vaga disponível e, mais ou menos um ano depois, promoveram-me chefe do setor. Durante a minha jornada 
+    profissional trabalhei com muitas tecnologias, sendo algumas complexas geoprocessamento (ArcGIS) e infraestrutura de 
+    Plone/Zope e outras commodities: storage (DAS, NAS, SAN), redes (BIND, DHCP, Apache, NGINX, Squid, Varnish, iptables), 
+    servidores (Linux, Windows) e virtualizadores (Xen e VMWare). Em toda minha caminhada sempre valorizei a pesquisa acadêmica, 
+    pois é uma forma ímpar não somente para incrementar os meus conhecimentos com metodologia de qualidade e professores 
+    experientes, mas também para eu devolver um pouco para a sociedade tudo aquilo que o ensino público me proporcionou por 
+    exemplo, o meu projeto de graduação foi a criação de uma impressora braile de baixo custo (concluído com sucesso). 
+    Por fim, ando de mão dada com a segurança da informação e automação; estudo diariamente como os hackers atuam, as 
+    vulnerabilidades que exploram e como automatizar o máximo possível das minhas tarefas diárias não somente como forma de 
+    aperfeiçoar a segurança dos sistemas, mas também para observar a Lei Geral de Proteção de Dados Pessoais (LGPD) e manter 
+    os dados dos nossos usuários seguros.
   Terminal:
     userName: charles.santos
     pcName: t7
