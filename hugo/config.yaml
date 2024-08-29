@@ -5,7 +5,7 @@ theme: bash
 
 Params:
   description: |
-    Charles Henrique Gonçalves Santos, graduado em Engenharia de Computação e mestre em Sistemas Mecatrônicos. 
+    Charles Henrique Gonçalves Santos, graduado em Engenharia de Computação, mestre em Sistemas Mecatrônicos e doutorando em informática. 
     Atualmente atuo como Analista de Infraestrutura no Ministério Público do Trabalho (MPT.mp.br), 
     sendo o líder do time DevOps, dado a minha excelência em Linux e Kubernetes comprovada pelas certificações 
     profissionais internacionais CKS, CKA, CKAD, LFCE e LFCS (credly.com/users/thyarles). Trabalho, ainda, há 
@@ -41,8 +41,9 @@ Params:
     profile: whoami.txt
     description: |
       - Bachelor's in Computer Engineering
-      - Pursuing a second degree in Statistics
+      - Degree in Statistics suspended (50%)
       - Master's in Mechatronics Engineering
+      - PhD's studend in IT
       - Extensive experience in technology
       - Work is a paid hobby for me
   Tree_01:
