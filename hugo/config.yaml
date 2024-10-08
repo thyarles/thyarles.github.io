@@ -56,7 +56,9 @@ Params:
     folderName:
       publications
     files:
-      - - Low cost Braille printer, 2008 
+      - - Low cost Braille printer, 2008
         - https://www.provadigital.com.br/docs/braille.pdf
+      - - Low cost Braille printer, slides
+        - https://www.provadigital.com.br/docs/braille-slides.pdf
       - - Proposal for NCM, 2011
         - https://www.provadigital.com.br/docs/ncm.pdf
