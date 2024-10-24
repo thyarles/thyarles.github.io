@@ -26768,7 +26768,7 @@ body.home .arrow .shaft {
     background-color: #2dc937
 }
 
-{
+#demo-container {
     background-color: #fff;
     border-top-left-radius: 20px;
     border-top-right-radius: 20px;
@@ -26777,19 +26777,19 @@ body.home .arrow .shaft {
     width: 100%
 }
 
-h1 {
+#demo-container h1 {
     font-size: 3rem
 }
 
-h2 {
+#demo-container h2 {
     font-size: 2rem
 }
 
-blockquote {
+#demo-container blockquote {
     font-size: 1.5rem
 }
 
-.ql-size-large {
+#demo-container .ql-size-large {
     font-size: 24px
 }
 
@@ -26811,11 +26811,11 @@ blockquote {
     display: table
 }
 
-.ql-snow {
+#demo-container .ql-snow {
     border: none
 }
 
-.ql-snow a:active,.ql-snow a:hover {
+#demo-container .ql-snow a:active,#demo-container .ql-snow a:hover {
     color: #06c
 }
 
@@ -26831,13 +26831,13 @@ blockquote {
     padding: 0 17% 25px
 }
 
-#bubble-container,#full-container,#snow-container {
+#demo-container #bubble-container,#demo-container #full-container,#demo-container #snow-container {
     display: flex;
     flex-flow: column;
     height: 100%
 }
 
-#bubble-container .ql-container,#full-container .ql-container,#snow-container .ql-container {
+#demo-container #bubble-container .ql-container,#demo-container #full-container .ql-container,#demo-container #snow-container .ql-container {
     flex: 2 1;
     overflow: hidden
 }
@@ -26879,7 +26879,7 @@ blockquote {
     opacity: 0
 }
 
-#above-container.demo-active .ql-editor {
+#above-container.demo-active #demo-container .ql-editor {
     overflow-y: auto
 }
 
@@ -27044,60 +27044,60 @@ blockquote {
     padding-right: 2em
 }
 
-.ql-editor,.ql-editor h1,.ql-editor h2,.ql-editor h3,.ql-editor h4,.ql-editor h5,.ql-editor h6,.ql-toolbar {
+#demo-container .ql-editor,#demo-container .ql-editor h1,#demo-container .ql-editor h2,#demo-container .ql-editor h3,#demo-container .ql-editor h4,#demo-container .ql-editor h5,#demo-container .ql-editor h6,#demo-container .ql-toolbar {
     font-family: Sailec Light,sans-serif
 }
 
-.ql-toolbar .ql-picker-label {
+#demo-container .ql-toolbar .ql-picker-label {
     font-size: 15px
 }
 
-.ql-snow .ql-header.ql-picker {
+#demo-container .ql-snow .ql-header.ql-picker {
     width: 115px
 }
 
-.ql-snow .ql-font.ql-picker {
+#demo-container .ql-snow .ql-font.ql-picker {
     width: 132px
 }
 
-.ql-snow .ql-picker.ql-font .ql-picker-label:not([data-label]):before {
+#demo-container .ql-snow .ql-picker.ql-font .ql-picker-label:not([data-label]):before {
     content: "Sailec Light"
 }
 
-.ql-font-sofia,.ql-snow .ql-font .ql-picker-item[data-value=sofia]:before,.ql-snow .ql-font .ql-picker-label[data-value=sofia]:not([data-label]):before {
+#demo-container .ql-font-sofia,#demo-container .ql-snow .ql-font .ql-picker-item[data-value=sofia]:before,#demo-container .ql-snow .ql-font .ql-picker-label[data-value=sofia]:not([data-label]):before {
     content: "Sofia Pro";
     font-family: Sofia Pro,sans-serif
 }
 
-.ql-font-slabo,.ql-snow .ql-font .ql-picker-item[data-value=slabo]:before,.ql-snow .ql-font .ql-picker-label[data-value=slabo]:not([data-label]):before {
+#demo-container .ql-font-slabo,#demo-container .ql-snow .ql-font .ql-picker-item[data-value=slabo]:before,#demo-container .ql-snow .ql-font .ql-picker-label[data-value=slabo]:not([data-label]):before {
     content: "Slabo 13px";
     font-family: Slabo\ 13px,sans-serif
 }
 
-.ql-font-roboto,.ql-snow .ql-font .ql-picker-item[data-value=roboto]:before,.ql-snow .ql-font .ql-picker-label[data-value=roboto]:not([data-label]):before {
+#demo-container .ql-font-roboto,#demo-container .ql-snow .ql-font .ql-picker-item[data-value=roboto]:before,#demo-container .ql-snow .ql-font .ql-picker-label[data-value=roboto]:not([data-label]):before {
     content: "Roboto Slab";
     font-family: Roboto Slab,serif
 }
 
-.ql-font-inconsolata,.ql-snow .ql-font .ql-picker-item[data-value=inconsolata]:before,.ql-snow .ql-font .ql-picker-label[data-value=inconsolata]:not([data-label]):before {
+#demo-container .ql-font-inconsolata,#demo-container .ql-snow .ql-font .ql-picker-item[data-value=inconsolata]:before,#demo-container .ql-snow .ql-font .ql-picker-label[data-value=inconsolata]:not([data-label]):before {
     content: "Inconsolata";
     font-family: Inconsolata,monospace
 }
 
-.ql-font-ubuntu,.ql-snow .ql-font .ql-picker-item[data-value=ubuntu]:before,.ql-snow .ql-font .ql-picker-label[data-value=ubuntu]:not([data-label]):before {
+#demo-container .ql-font-ubuntu,#demo-container .ql-snow .ql-font .ql-picker-item[data-value=ubuntu]:before,#demo-container .ql-snow .ql-font .ql-picker-label[data-value=ubuntu]:not([data-label]):before {
     content: "Ubuntu Mono";
     font-family: Ubuntu Mono,monospace
 }
 
-.ql-editor {
+#demo-container .ql-editor {
     font-size: 1.5em
 }
 
-.ql-editor li {
+#demo-container .ql-editor li {
     margin-bottom: 0
 }
 
-.ql-editor .ql-code-block-container,.ql-editor pre {
+#demo-container .ql-editor .ql-code-block-container,#demo-container .ql-editor pre {
     font-family: Inconsolata,monospace;
     font-size: .8em
 }
@@ -27514,12 +27514,12 @@ body:not(.home) .navbar-link:before {
         max-width: 2em
     }
 
-    {
+    #demo-container {
         padding-left: 0;
         padding-right: 0
     }
 
-    .ql-editor {
+    #demo-container .ql-editor {
         font-size: 1em;
         padding: 20px
     }
