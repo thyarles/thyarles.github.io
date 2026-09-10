@@ -26,39 +26,77 @@ Params:
       - PhD student in Informatics at UnB
       - Extensive experience in technology
       - Work is a paid hobby for me
-  Tree_01:
+
+  # Note: `neofetch` card. `ascii` is drawn as-is (whitespace preserved) on the
+  # left, `info` is the key/value column on the right. Keep the widest info line
+  # under ~26 chars so the card still fits a phone screen.
+  Neofetch:
     use: true
-    folderName:
-      skills
-    files:
-      - - DevOps
-        - https://www.credly.com/users/thyarles/badges
-      - - CKS
-        - https://www.credly.com/badges/3af4a40a-4ea7-43b3-ba48-2de1849f27f3
-      - - CKA
-        - https://www.credly.com/badges/9dd468c6-4baf-4c56-88c5-a4a2b61efbbb
-      - - CKAD
-        - https://www.credly.com/badges/b7a8c8bd-92ad-4944-bbb2-bf07cf417a3e
-      - - LFCE
-        - https://www.credly.com/badges/32ac2769-4cb6-47aa-a1e5-6ac923101e22
-      - - LFCS
-        - https://www.credly.com/badges/9ce3809f-b641-48ca-8b5f-23006664dd67
-      - - GitHub
-        - https://github.com/thyarles
-      - - Linkedin
-        - https://www.linkedin.com/in/thyarles/
-      - - Smartlab
-        - https://smartlabbr.org
-      - - Hacking
-        - https://oab-ma.jusbrasil.com.br/noticias/1994233/tse-seleciona-32-hackers-para-testa-urnas-eletronicas
-  Tree_02:
-    use: true
-    folderName:
-      publications
-    files:
-      - - Low cost Braille printer, 2008
-        - https://www.provadigital.com.br/docs/braille.pdf
-      - - Low cost Braille printer, slides
-        - https://www.provadigital.com.br/docs/braille-slides.pdf
-      - - Proposal for NCM, 2011
-        - https://www.provadigital.com.br/docs/ncm.pdf
+    command: neofetch
+    ascii:
+      - "   .--."
+      - "  |o_o |"
+      - "  |:_/ |"
+      - " //   \\ \\"
+      - "(|     | )"
+      - "/'\\_   _/`\\"
+      - "\\___)=(___/"
+    info:
+      - ["OS", "Linux"]
+      - ["Shell", "bash"]
+      - ["WM", "Kubernetes"]
+      - ["Certs", "CKS CKA CKAD"]
+      - ["", "LFCE LFCS"]
+      - ["Role", "DevOps @ MPT"]
+      - ["Lab", "smartlabbr.org", "https://smartlabbr.org"]
+      - ["Uptime", "20+ years"]
+      - ["Battery", "caffeine"]
+
+  # Note: every entry becomes one `tree <folderName>` block in the terminal.
+  # Optional per-tree keys: `command` (default "tree <folderName>") and
+  # `caption` (default "<n> directories, click one of them to read it").
+  Trees:
+    - folderName: skills
+      files:
+        - - DevOps
+          - https://www.credly.com/users/thyarles/badges
+        - - CKS
+          - https://www.credly.com/badges/3af4a40a-4ea7-43b3-ba48-2de1849f27f3
+        - - CKA
+          - https://www.credly.com/badges/9dd468c6-4baf-4c56-88c5-a4a2b61efbbb
+        - - CKAD
+          - https://www.credly.com/badges/b7a8c8bd-92ad-4944-bbb2-bf07cf417a3e
+        - - LFCE
+          - https://www.credly.com/badges/32ac2769-4cb6-47aa-a1e5-6ac923101e22
+        - - LFCS
+          - https://www.credly.com/badges/9ce3809f-b641-48ca-8b5f-23006664dd67
+        - - GitHub
+          - https://github.com/thyarles
+        - - Linkedin
+          - https://www.linkedin.com/in/thyarles/
+        - - Smartlab
+          - https://smartlabbr.org
+        - - Hacking
+          - https://oab-ma.jusbrasil.com.br/noticias/1994233/tse-seleciona-32-hackers-para-testa-urnas-eletronicas
+
+    - folderName: publications
+      files:
+        - - Low cost Braille printer, 2008
+          - https://www.provadigital.com.br/docs/braille.pdf
+        - - Low cost Braille printer, slides
+          - https://www.provadigital.com.br/docs/braille-slides.pdf
+        - - Proposal for NCM, 2011
+          - https://www.provadigital.com.br/docs/ncm.pdf
+
+    - folderName: contact
+      command: cat contact.txt
+      caption: 4 ways to reach me, click one of them
+      files:
+        - - Linkedin
+          - https://www.linkedin.com/in/thyarles/
+        - - GitHub
+          - https://github.com/thyarles
+        - - Credly
+          - https://www.credly.com/users/thyarles/badges
+        - - Smartlab
+          - https://smartlabbr.org

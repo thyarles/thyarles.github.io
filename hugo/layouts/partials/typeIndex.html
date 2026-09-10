@@ -1,108 +1,92 @@
-<span id="ps1_01"></span> <span id="cd"></span> <br>
-<span id="ps1_02"></span> <span id="cat"></span> <br>
-<span id="std_out_02"></span> <br><br>
-<span id="ps1_03"></span> <span id="tree_01"></span> <br>
-<span id="std_out_03"></span> <br>
-<span id="std_out_c3"></span> <br><br>
-<span id="ps1_04"></span> <span id="tree_02"></span> <br>
-<span id="std_out_04"></span> <br>
-<span id="std_out_c4"></span> <br><br>
-<span id="ps1_05"></span>
+{{/* Renders the terminal session built in layouts/index.html. Every step is
+     { ps1, cmd, out } of HTML; the typewriter reveals them in order. */}}
 
+<style>
+    /* Blinking cursor on whichever span is currently being typed. The
+       --cursor-visibility variable is flipped inline by typewriter(). */
+    .tw:after {
+        content: "|";
+        visibility: var(--cursor-visibility, hidden);
+        overflow: hidden;
+        color: white;
+        animation: blink 500ms linear infinite alternate;
+    }
+</style>
+
+{{ range $i, $s := .steps }}
+<span class="tw" id="ps1_{{ $i }}"></span> <span class="tw" id="cmd_{{ $i }}"></span> <br>
+{{- if $s.out }}
+<span class="tw" id="out_{{ $i }}"></span> <br><br>
+{{- end }}
+{{ end }}
+
+{{/* Tag-free transcript of the exact same data, for crawlers and no-JS.
+     Generated from .steps so it can never go stale. */}}
+{{- $lines := slice }}
+{{- range .steps }}
+    {{- $lines = $lines | append (printf "%s %s" (plainify .ps1) (plainify .cmd)) }}
+    {{- $out := "" }}
+    {{/* plainify turns <br> into newlines on its own, so .out needs no pre-pass */}}
+    {{- with .plain }}{{ $out = . }}{{ else }}{{ $out = printf "%s\n" (plainify (printf "%v" .out)) }}{{ end }}
+    {{- if trim $out "\n" }}{{ $lines = $lines | append $out }}{{ end }}
+{{- end }}
 <pre style="display: none">
-charles.santos@t7 ~/ $ cd me
-charles.santos@t7 ~/me $ cat whoami.txt
-- Charles Henrique Gonçalves Santos
-    - Bachelor's in Computer Engineering
-    - Pursuing a second degree in Statistics
-    - Master's in Mechatronics Engineering
-    - Extensive experience in technology
-    - Work is a paid hobby for me 
-
-charles.santos@t7 ~/me $ tree skills
-skills
-├── DevOps
-├── CKS
-├── CKA
-├── CKAD
-├── LFCE
-├── LFCS
-├── GitHub
-├── Linkedin
-├── Smartlab
-└── Hacking
-
-10 directories, click one of them to read it
-
-charles.santos@t7 ~/me $ tree publications
-publications
-├── Low cost Braille printer, 2008
-└── Proposal for NCM, 2011
-
-2 directories, click one of them to read it
-
-charles.santos@t7 ~/me $
+{{- delimit $lines "\n" }}
 </pre>
+
+{{- $js := slice }}
+{{- range .steps }}{{ $js = $js | append (dict "ps1" (printf "%v" .ps1) "cmd" (printf "%v" .cmd) "out" (printf "%v" .out)) }}{{ end }}
+
 <script type="text/javascript">
+    const STEPS = {{ $js | jsonify | safeJS }};
+
+    const ps1Delay = {{ .ps1delay | default 0 }},
+          stdoutDelay = {{ .stdoutdelay | default 0 }},
+          commandDelay = {{ .commanddelay | default 0 }};
+
     async function typewriter(text, elementId, waitAfter) {
-        var n = 0,
-            isTag = false
-        addText = "";
         const el = document.getElementById(elementId);
+        if (!el || !text) return;
 
+        let out = "", i = 0;
         const wait = () => new Promise(r => setTimeout(r, waitAfter));
-        const nowait = () => new Promise(r => r());
-
-        const render = () => el.innerHTML = (text.slice(0, n + 1) + addText);
-
-        const cursor = document.createElement('span');
-        cursor.id = "blink";
+        const render = () => el.innerHTML = out;
 
         el.style.setProperty("--cursor-visibility", "visible");
-        while (n < text.length) {
-            if (text.charAt(n + 1) === "<") isTag = true;
-            if (text.charAt(n + 1) === ">") isTag = false;
 
-            if (isTag) {
-                n++;
-                continue;
+        while (i < text.length) {
+            const ch = text.charAt(i);
+
+            // markup and entities are emitted whole and cost no time,
+            // only characters the visitor actually sees are paced
+            if (ch === "<" || ch === "&") {
+                const close = text.indexOf(ch === "<" ? ">" : ";", i);
+                const stop = close === -1 ? i : close;
+                out += text.slice(i, stop + 1);
+                i = stop + 1;
+                if (ch === "<") continue;
+            } else {
+                out += ch;
+                i++;
             }
 
             requestAnimationFrame(render);
-
-            if (waitAfter === 0) {
-                await nowait();
-            } else {
-                await wait();
-            }
-
-            n++;
+            if (waitAfter > 0) await wait();
         }
+
+        render();
         el.style.setProperty("--cursor-visibility", "collapse");
     }
 
-    function parseDelay(d) {
-        const parsed = parseInt(d, 10);
-        if (isNaN(parsed)) return 0;
-        return parsed;
-    }
+    (async () => {
+        for (let i = 0; i < STEPS.length; i++) {
+            await typewriter(STEPS[i].ps1, "ps1_" + i, ps1Delay);
+            await typewriter(STEPS[i].cmd, "cmd_" + i, commandDelay);
+            await typewriter(STEPS[i].out, "out_" + i, stdoutDelay);
+        }
 
-    const ps1Delay = parseDelay("{{ .ps1delay }}"),
-        stdoutDelay = parseDelay("{{ .stdoutdelay }}"),
-        commandDelay = parseDelay("{{ .commanddelay }}");
-    const typeeffetct = async () => {
-        await typewriter("{{ .env }}", "ps1_01", ps1Delay); await typewriter("{{ .cd }}", "cd", commandDelay);
-        await typewriter("{{ .envWithDir }}", "ps1_02", ps1Delay); await typewriter("{{ .cat }}", "cat", commandDelay);
-        await typewriter("{{ .description }}", "std_out_02", stdoutDelay);
-        await typewriter("{{ .envWithDir }}", "ps1_03", ps1Delay); await typewriter("{{ .tree01 }}", "tree_01", commandDelay);
-        await typewriter("{{ .leaf01 }}", "std_out_03", stdoutDelay);
-        await typewriter("<span id='terminal'><br>10 directories, click one of them to read it</span>", "std_out_c3", ps1Delay);
-        await typewriter("{{ .envWithDir }}", "ps1_04", ps1Delay); await typewriter("{{ .tree02 }}", "tree_02", commandDelay);
-        await typewriter("{{ .leaf02 }}", "std_out_04", stdoutDelay);
-        await typewriter("<span id='terminal'><br>3 directories, click one of them to read it</span>", "std_out_c4", ps1Delay);
-        await typewriter("{{ .envWithDir }}", "ps1_05", ps1Delay);
-        return;
-    }
-
-    typeeffetct()
+        // leave the trailing prompt blinking, like a shell waiting for input
+        const last = document.getElementById("cmd_" + (STEPS.length - 1));
+        if (last) last.style.setProperty("--cursor-visibility", "visible");
+    })();
 </script>
