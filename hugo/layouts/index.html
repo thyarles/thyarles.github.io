@@ -36,8 +36,6 @@
     {{/* --- neofetch ----------------------------------------------------- */}}
     {{ with .Site.Params.Neofetch }}
     {{ if .use }}
-        {{ $user := printf "%s@%s" $t.userName $t.pcName }}
-
         {{/* widest ascii line and widest info key, so both columns line up */}}
         {{ $artw := 0 }}
         {{ range .ascii }}{{ if gt (len .) $artw }}{{ $artw = len . }}{{ end }}{{ end }}
@@ -45,9 +43,11 @@
         {{ range .info }}{{ $k := index . 0 }}{{ if gt (len $k) $keyw }}{{ $keyw = len $k }}{{ end }}{{ end }}
         {{ $keyw = add $keyw 2 }}
 
-        {{/* right-hand column: header, rule, then the key/value rows */}}
-        {{ $info := slice (printf "<span id='user'>%s</span>" $user) (printf "<span id='terminal'>%s</span>" (strings.Repeat (len $user) "-")) }}
-        {{ $infoPlain := slice $user (strings.Repeat (len $user) "-") }}
+        {{/* right-hand column: just the key/value rows. Real neofetch heads
+             this with user@host, but the prompt one line above already says
+             it, so repeating it here is noise. */}}
+        {{ $info := slice }}
+        {{ $infoPlain := slice }}
         {{ range .info }}
             {{ $k := printf "%-*s" $keyw (index . 0) }}
             {{ $v := index . 1 }}
@@ -75,35 +75,60 @@
             {{ $outPlain = printf "%s%s%s\n" $outPlain $art $rightPlain }}
         {{ end }}
 
+        {{/* the loop leaves a trailing newline, which white-space:pre would
+             render as an extra blank line on top of the partial's spacing */}}
         {{ $steps = $steps | append (dict
             "ps1" $ps1Dir
             "cmd" (printf "<span id='terminal'>%s</span>" (default "neofetch" .command))
-            "out" (printf "<span id='terminal' style='white-space: pre'>%s</span>" $out)
-            "plain" (printf "%s\n" $outPlain)) }}
+            "out" (printf "<span id='terminal' style='white-space: pre'>%s</span>" (trim $out "\n"))
+            "plain" $outPlain) }}
     {{ end }}
     {{ end }}
 
     {{/* --- tree <folder> (one step per configured tree) ------------------ */}}
     {{ range .Site.Params.Trees }}
         {{ $tree := . }}
-        {{ $out := printf "<strong><span id='dir'>%s</span></strong><br>" $tree.folderName }}
+
+        {{/* widest name in this tree, so every dot leader ends in one column */}}
+        {{ $w := 0 }}
+        {{ range $tree.files }}{{ $n := index . 0 }}{{ if gt (len $n) $w }}{{ $w = len $n }}{{ end }}{{ end }}
+        {{ $w = add $w 6 }}
+
+        {{/* hanging indent: where the description column starts, so wrapped
+             text on a narrow screen stays clear of the tree glyphs */}}
+        {{ $hasDesc := false }}
+        {{ range $tree.files }}{{ if gt (len .) 2 }}{{ $hasDesc = true }}{{ end }}{{ end }}
+        {{ $hang := 4 }}
+        {{ if $hasDesc }}{{ $hang = add $w 6 }}{{ if gt $hang 24 }}{{ $hang = 24 }}{{ end }}{{ end }}
+
+        {{ $out := printf "<span class='tree' style='--hang: %dch'><strong><span id='dir'>%s</span></strong>" $hang $tree.folderName }}
         {{ $outPlain := printf "%s\n" $tree.folderName }}
 
         {{ range $index, $val := $tree.files }}
             {{ $name := index $val 0 }}
             {{ $link := index $val 1 }}
+            {{ $desc := "" }}
+            {{ if gt (len $val) 2 }}{{ $desc = index $val 2 }}{{ end }}
+
             {{/* internal markdown paths resolve to a permalink, external URLs pass through */}}
             {{ with $.Site.GetPage $link }}{{ $link = .Permalink }}{{ end }}
 
             {{ $branch := "├──" }}
             {{ if eq (add $index 1) (len $tree.files) }}{{ $branch = "└──" }}{{ end }}
 
-            {{ $out = printf "%s<span id='terminal'>%s <a href='%s' target='_blank' style='text-decoration: none'>%s</a></span><br>" $out $branch $link $name }}
-            {{ $outPlain = printf "%s%s %s\n" $outPlain $branch $name }}
+            {{ $tail := "" }}
+            {{ if $desc }}
+                {{ $dots := sub $w (len $name) }}
+                {{ if lt $dots 3 }}{{ $dots = 3 }}{{ end }}
+                {{ $tail = printf " %s %s" (strings.Repeat $dots ".") $desc }}
+            {{ end }}
+
+            {{ $out = printf "%s<span class='row' id='terminal'>%s <a href='%s' target='_blank' style='text-decoration: none'>%s</a>%s</span>" $out $branch $link $name $tail }}
+            {{ $outPlain = printf "%s%s %s%s\n" $outPlain $branch $name $tail }}
         {{ end }}
 
         {{ $caption := default (printf "%d directories, click one of them to read it" (len $tree.files)) $tree.caption }}
-        {{ $out = printf "%s<span id='terminal'><br>%s</span>" $out $caption }}
+        {{ $out = printf "%s<span class='cap' id='terminal'>%s</span></span>" $out $caption }}
         {{ $outPlain = printf "%s\n%s\n" $outPlain $caption }}
 
         {{ $steps = $steps | append (dict

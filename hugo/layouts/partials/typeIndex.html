@@ -5,10 +5,13 @@
     /* Blinking cursor on whichever span is currently being typed. The
        --cursor-visibility variable is flipped inline by typewriter(). */
     .tw:after {
-        content: "|";
+        /* solid block in the prompt green, like the cursor on the README
+           cards; the full-block glyph is exactly one cell wide, so it sits on
+           the character grid without any manual nudging */
+        content: "\2588";
+        color: #23e298;
         visibility: var(--cursor-visibility, hidden);
         overflow: hidden;
-        color: white;
         animation: blink 500ms linear infinite alternate;
     }
 </style>

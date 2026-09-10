@@ -43,13 +43,13 @@ Params:
       - "\\___)=(___/"
     info:
       - ["OS", "Linux"]
-      - ["Shell", "bash"]
+      - ["Shell", "bash 5.2"]
       - ["WM", "Kubernetes"]
       - ["Certs", "CKS CKA CKAD"]
       - ["", "LFCE LFCS"]
-      - ["Role", "DevOps @ MPT"]
+      - ["Role", "DevOps Lead @ MPT"]
       - ["Lab", "smartlabbr.org", "https://smartlabbr.org"]
-      - ["Uptime", "20+ years"]
+      - ["Uptime", "30+ years, since age 11"]
       - ["Battery", "caffeine"]
 
   # Note: every entry becomes one `tree <folderName>` block in the terminal.
@@ -60,24 +60,34 @@ Params:
       files:
         - - DevOps
           - https://www.credly.com/users/thyarles/badges
+          - "every badge I have collected so far"
         - - CKS
           - https://www.credly.com/badges/3af4a40a-4ea7-43b3-ba48-2de1849f27f3
+          - "Certified Kubernetes Security Specialist"
         - - CKA
           - https://www.credly.com/badges/9dd468c6-4baf-4c56-88c5-a4a2b61efbbb
+          - "Certified Kubernetes Administrator"
         - - CKAD
           - https://www.credly.com/badges/b7a8c8bd-92ad-4944-bbb2-bf07cf417a3e
+          - "Certified Kubernetes Application Developer"
         - - LFCE
           - https://www.credly.com/badges/32ac2769-4cb6-47aa-a1e5-6ac923101e22
+          - "Linux Foundation Certified Engineer"
         - - LFCS
           - https://www.credly.com/badges/9ce3809f-b641-48ca-8b5f-23006664dd67
+          - "Linux Foundation Certified SysAdmin"
         - - GitHub
           - https://github.com/thyarles
+          - "where the commits live"
         - - Linkedin
           - https://www.linkedin.com/in/thyarles/
+          - "the suit-and-tie version of this file"
         - - Smartlab
           - https://smartlabbr.org
+          - "open data + private LLMs for public good"
         - - Hacking
           - https://oab-ma.jusbrasil.com.br/noticias/1994233/tse-seleciona-32-hackers-para-testa-urnas-eletronicas
+          - "1 of 32 hackers picked by TSE to test e-voting"
 
     - folderName: publications
       files:
@@ -87,6 +97,8 @@ Params:
           - https://www.provadigital.com.br/docs/braille-slides.pdf
         - - Proposal for NCM, 2011
           - https://www.provadigital.com.br/docs/ncm.pdf
+        - - "How easy is to large language models hallucinate?, 2024"
+          - https://www.researchgate.net/profile/Charles-Santos-10/publication/385553867_How_easy_is_to_large_language_models_hallucinate/links/679eafe896e7fb48b9ad762b/How-easy-is-to-large-language-models-hallucinate.pdf
 
     - folderName: contact
       command: cat contact.txt
@@ -94,9 +106,13 @@ Params:
       files:
         - - Linkedin
           - https://www.linkedin.com/in/thyarles/
+          - "the suit-and-tie version of this file"
         - - GitHub
           - https://github.com/thyarles
+          - "code, dotfiles and side quests"
         - - Credly
           - https://www.credly.com/users/thyarles/badges
+          - "every certification, verifiable"
         - - Smartlab
           - https://smartlabbr.org
+          - "open data for public good"

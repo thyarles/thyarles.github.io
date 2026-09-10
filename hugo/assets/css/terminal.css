@@ -1,0 +1,125 @@
+/* Project chrome for provadigital.com.br — loaded last so it wins over the
+   bash theme's default.scss and the colour scheme. */
+
+/* ---------------------------------------------------------------- page ---
+   The theme pinned html/body to height:100% + overflow:auto and then
+   flex-centred the body. Once the content grew taller than the viewport the
+   top of the page became unreachable, which is the broken scrolling. */
+html,
+body {
+    width: auto;
+    height: auto;
+    min-height: 100%;
+    overflow: visible;
+}
+
+/* Match the README's SVG cards exactly: the system terminal face, drawn on a
+   tight grid. The theme shipped Inconsolata, which is rounder and more widely
+   leaded than a real terminal font. */
+html,
+body {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas,
+                 "DejaVu Sans Mono", "Liberation Mono", monospace;
+}
+
+body {
+    display: block;
+    box-sizing: border-box;
+    margin: 0;
+    padding: clamp(14px, 4vh, 46px) clamp(10px, 3vw, 30px);
+    background: #141617;
+
+    /* the theme sized text in vmin, which made it enormous on a phone and on
+       a wide monitor alike; ch-relative clamping keeps a terminal line legible */
+    font-size: clamp(12px, 1.5vw, 17px);
+
+    /* the cards draw 14px text on a 20px grid — 1.43; anything looser stops
+       reading as terminal output */
+    line-height: 1.45;
+
+    /* Cascadia/Fira-style faces turn -> and != into glyphs, which would break
+       the ascii art and the tree alignment */
+    font-variant-ligatures: none;
+}
+
+/* ------------------------------------------------------- terminal window --- */
+#terminal-window {
+    max-width: 1000px;
+    margin: 0 auto;
+    background: #0d0f10;
+    border: 1px solid #2b2e30;
+    border-radius: 10px;
+    box-shadow: 0 20px 55px rgba(0, 0, 0, .55);
+    overflow: hidden;
+}
+
+#titlebar {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    height: 36px;
+    padding: 0 14px;
+    background: #1b1d1e;
+    border-bottom: 1px solid #2b2e30;
+}
+
+#titlebar .dot {
+    flex: none;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+}
+
+#titlebar .dot.red    { background: #ff5f57; }
+#titlebar .dot.yellow { background: #febc2e; }
+#titlebar .dot.green  { background: #28c840; }
+
+#titlebar .title {
+    position: absolute;
+    left: 0;
+    right: 0;
+    text-align: center;
+    color: #6f7275;
+    font-size: .82em;
+    pointer-events: none;
+}
+
+/* the centred title would collide with the dots on a narrow screen */
+@media (max-width: 560px) {
+    #titlebar .title { display: none; }
+}
+
+#content {
+    min-width: 0;
+    min-height: 0;
+    padding: 18px clamp(14px, 2.2vw, 26px) 26px;
+    overflow-x: auto;
+}
+
+/* --------------------------------------------------------------- output --- */
+/* tree blocks keep their dot leaders aligned but still wrap on a phone */
+#content .tree { white-space: pre-wrap; }
+
+#content a {
+    color: #66d9ef;
+    text-decoration: none;
+}
+
+#content a:hover,
+#content a:focus-visible {
+    text-decoration: underline;
+}
+
+/* tree rows are blocks so each one can carry a hanging indent; --hang is set
+   per tree by the layout and marks where its description column begins */
+#content .tree strong,
+#content .tree .row,
+#content .tree .cap { display: block; }
+
+#content .tree .row {
+    padding-left: var(--hang, 4ch);
+    text-indent: calc(-1 * var(--hang, 4ch));
+}
+
+#content .tree .cap { margin-top: 1em; }

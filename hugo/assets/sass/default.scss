@@ -1,0 +1,38 @@
+// Project override of the bash theme's assets/sass/default.scss.
+//
+// Kept:    the cursor variable and the blink keyframes the typewriter drives,
+//          plus the scrollbar styling.
+// Dropped: the Inconsolata webfont (the terminal now uses the system monospace
+//          face, so that Google Fonts request downloaded a font nothing used),
+//          the vmin type scale, the flex centring and the #content min sizes —
+//          all of which now live in assets/css/terminal.css.
+//
+// The dead #ps1_01/#cd/#std_out_* cursor selectors are gone too; the typewriter
+// generates its own ids and styles them via .tw in layouts/partials/typeIndex.html.
+
+:root {
+    --cursor-visibility: hidden;
+}
+
+@keyframes blink {
+    0% {
+        opacity: 0;
+    }
+    100% {
+        opacity: 1;
+    }
+}
+
+::-webkit-scrollbar {
+    width: 10px;
+}
+
+::-webkit-scrollbar-track {
+    border-radius: 10px;
+    box-shadow: inset 0 0 1px #3a3d3e;
+}
+
+::-webkit-scrollbar-thumb {
+    border-radius: 10px;
+    box-shadow: 0 0 0 1px #4a4e50;
+}
