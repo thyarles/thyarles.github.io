@@ -2,15 +2,16 @@
    bash theme's default.scss and the colour scheme. */
 
 /* ---------------------------------------------------------------- page ---
-   The theme pinned html/body to height:100% + overflow:auto and then
-   flex-centred the body. Once the content grew taller than the viewport the
-   top of the page became unreachable, which is the broken scrolling. */
+   The terminal is the window: it fills the viewport edge to edge, so the
+   document itself never scrolls and #content is the only scroll container.
+   That is also what keeps the top of the transcript reachable — the theme's
+   original height:100% + flex-centred body made it unreachable once the
+   output grew taller than the screen. */
 html,
 body {
     width: auto;
-    height: auto;
-    min-height: 100%;
-    overflow: visible;
+    height: 100%;
+    overflow: hidden;
 }
 
 /* Match the README's SVG cards exactly: the system terminal face, drawn on a
@@ -26,8 +27,11 @@ body {
     display: block;
     box-sizing: border-box;
     margin: 0;
-    padding: clamp(14px, 4vh, 46px) clamp(10px, 3vw, 30px);
-    background: #141617;
+    padding: 0;
+
+    /* dvh so a phone's collapsing URL bar cannot clip the bottom row */
+    height: 100dvh;
+    background: #0d0f10;
 
     /* the theme sized text in vmin, which made it enormous on a phone and on
        a wide monitor alike; ch-relative clamping keeps a terminal line legible */
@@ -44,18 +48,25 @@ body {
 
 /* ------------------------------------------------------- terminal window --- */
 #terminal-window {
-    max-width: 1000px;
-    margin: 0 auto;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    max-width: none;
+    margin: 0;
     background: #0d0f10;
-    border: 1px solid #2b2e30;
-    border-radius: 10px;
-    box-shadow: 0 20px 55px rgba(0, 0, 0, .55);
+
+    /* the framing that made it read as a floating window is gone now that it
+       is the window: no border, no radius, no drop shadow */
+    border: 0;
+    border-radius: 0;
+    box-shadow: none;
     overflow: hidden;
 }
 
 #titlebar {
     position: relative;
     display: flex;
+    flex: none;
     align-items: center;
     gap: 8px;
     height: 36px;
@@ -91,10 +102,13 @@ body {
 }
 
 #content {
+    /* min-height:0 is what lets a flex child actually scroll instead of
+       stretching its parent */
+    flex: 1 1 auto;
     min-width: 0;
     min-height: 0;
     padding: 18px clamp(14px, 2.2vw, 26px) 26px;
-    overflow-x: auto;
+    overflow: auto;
 }
 
 /* --------------------------------------------------------------- output --- */
