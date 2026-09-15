@@ -1,1 +1,4 @@
 tmp
+
+# Hugo build cache (regenerated on every build)
+hugo/resources/

@@ -45,11 +45,9 @@ Params:
       - ["OS", "Linux"]
       - ["Shell", "bash 5.2"]
       - ["WM", "Kubernetes"]
-      - ["Certs", "CKS CKA CKAD"]
-      - ["", "LFCE LFCS"]
+      - ["Certs", "CKS CKA CKAD LFCE LFCS"]
       - ["Role", "DevOps Lead @ MPT"]
-      - ["Lab", "smartlabbr.org", "https://smartlabbr.org"]
-      - ["Uptime", "30+ years, since age 11"]
+      - ["InTech", "30+ years, since age 11"]
       - ["Battery", "caffeine"]
 
   # Note: every entry becomes one `tree <folderName>` block in the terminal.
