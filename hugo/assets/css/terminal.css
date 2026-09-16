@@ -115,6 +115,10 @@ body {
 /* tree blocks keep their dot leaders aligned but still wrap on a phone */
 #content .tree { white-space: pre-wrap; }
 
+/* `ls` prints one wrapping line of entries; pre-wrap is what keeps the column
+   gaps between them and still lets the line break on a narrow screen */
+#content .ls { white-space: pre-wrap; }
+
 #content a {
     color: #66d9ef;
     text-decoration: none;

@@ -11,29 +11,32 @@
     {{ $ps1 := printf "<strong><span id='user'>%s@%s</span><span id='terminal'> </span><span id='dir'>~/</span></strong><span id='terminal'> $</span>" $t.userName $t.pcName }}
     {{ $ps1Dir := printf "<strong><span id='user'>%s@%s</span><span id='terminal'> </span><span id='dir'>~/%s</span></strong><span id='terminal'> $</span>" $t.userName $t.pcName $t.workDir }}
 
+    {{/* ------------------------------------------------------------------
+         What `help` prints. Built before the steps because `help` is typed
+         during the intro but has to know about the trees, which are appended
+         after it. Everything the session can do is runnable; this list is only
+         the part worth pointing at, so `cd me`, `echo`, `ls`, `help` itself
+         and the easter eggs are all deliberately absent.
+         ------------------------------------------------------------------ */}}
+    {{ $neofetchCmd := "" }}
+    {{ with .Site.Params.Neofetch }}{{ if .use }}{{ $neofetchCmd = default "neofetch" .command }}{{ end }}{{ end }}
+
+    {{ $menu := slice }}
+    {{ $menu = $menu | append (dict "cmd" (printf "cat %s" $t.profile) "desc" "who I am") }}
+    {{ with $neofetchCmd }}{{ $menu = $menu | append (dict "cmd" . "desc" "the system card") }}{{ end }}
+    {{ range .Site.Params.Trees }}
+        {{ $menu = $menu | append (dict
+            "cmd"  (default (printf "tree %s" .folderName) .command)
+            "desc" (default (printf "%d entries" (len .files)) .desc)) }}
+    {{ end }}
+    {{/* `ls` and `help` are runnable but stay off this list: it is meant to
+         point at the content, not to document itself. */}}
+    {{ $menu = sort $menu "cmd" }}
+
     {{ $steps := slice }}
 
-    {{/* --- cd <workDir> ------------------------------------------------ */}}
-    {{ $steps = $steps | append (dict
-        "ps1" $ps1
-        "cmd" (printf "<span id='terminal'>cd %s</span>" $t.workDir)
-        "out" "") }}
-
-    {{/* --- cat <profile> ------------------------------------------------ */}}
-    {{ $descBody := "" }}
-    {{ if eq (substr $t.description -3 3) ".md" }}
-        {{ with .Site.GetPage $t.description }}
-            {{ $descBody = replaceRE "</?p[^>]*>" "" .Content }}
-        {{ end }}
-    {{ else }}
-        {{ $descBody = delimit (split (trim $t.description "\n") "\n") "<br>" }}
-    {{ end }}
-    {{ $steps = $steps | append (dict
-        "ps1" $ps1Dir
-        "cmd" (printf "<span id='terminal'>cat %s</span>" $t.profile)
-        "out" (printf "<span id='terminal'>%s</span>" $descBody)) }}
-
-    {{/* --- neofetch ----------------------------------------------------- */}}
+    {{/* --- neofetch -----------------------------------------------------
+         Opens the session, so it runs at ~/ — `cd me` has not happened yet. */}}
     {{ with .Site.Params.Neofetch }}
     {{ if .use }}
         {{/* widest ascii line and widest info key, so both columns line up */}}
@@ -78,12 +81,38 @@
         {{/* the loop leaves a trailing newline, which white-space:pre would
              render as an extra blank line on top of the partial's spacing */}}
         {{ $steps = $steps | append (dict
-            "ps1" $ps1Dir
+            "anim" true
+            "ps1" $ps1
             "cmd" (printf "<span id='terminal'>%s</span>" (default "neofetch" .command))
             "out" (printf "<span id='terminal' style='white-space: pre'>%s</span>" (trim $out "\n"))
             "plain" $outPlain) }}
     {{ end }}
     {{ end }}
+
+    {{/* --- cd <workDir> ------------------------------------------------ */}}
+    {{ $steps = $steps | append (dict
+        "anim" true
+        "ps1" $ps1
+        "cmd" (printf "<span id='terminal'>cd %s</span>" $t.workDir)
+        "out" "") }}
+
+    {{/* --- cat <profile> -------------------------------------------------
+         Runnable and listed by `help`, but not part of the intro: the tree
+         with `demo: true` is what the opening shows instead. */}}
+    {{ $descBody := "" }}
+    {{ if eq (substr $t.description -3 3) ".md" }}
+        {{ with .Site.GetPage $t.description }}
+            {{ $descBody = replaceRE "</?p[^>]*>" "" .Content }}
+        {{ end }}
+    {{ else }}
+        {{ $descBody = delimit (split (trim $t.description "\n") "\n") "<br>" }}
+    {{ end }}
+    {{ $steps = $steps | append (dict
+        "anim" false
+        "ps1" $ps1Dir
+        "cmd" (printf "<span id='terminal'>cat %s</span>" $t.profile)
+        "out" (printf "<span id='terminal'>%s</span>" $descBody)) }}
+
 
     {{/* --- tree <folder> (one step per configured tree) ------------------ */}}
     {{ range .Site.Params.Trees }}
@@ -131,15 +160,74 @@
         {{ $out = printf "%s<span class='cap' id='terminal'>%s</span></span>" $out $caption }}
         {{ $outPlain = printf "%s\n%s\n" $outPlain $caption }}
 
+        {{/* runnable from the prompt, but no longer part of the intro unless
+             the tree opts back in with `demo: true` */}}
         {{ $steps = $steps | append (dict
+            "anim" (default false $tree.demo)
             "ps1" $ps1Dir
             "cmd" (printf "<span id='terminal'>%s</span>" (default (printf "tree %s" $tree.folderName) $tree.command))
             "out" $out
             "plain" $outPlain) }}
     {{ end }}
 
+    {{/* --- ls (never animated; typed on demand) ------------------------- */}}
+    {{/* Read out of the config rather than written down, so a new tree shows
+         up here on its own: every tree is a directory, and any tree displayed
+         with `cat <file>` contributes that file too. */}}
+    {{ $entries := slice (dict "name" $t.profile "dir" false) }}
+    {{ range .Site.Params.Trees }}
+        {{ $entries = $entries | append (dict "name" .folderName "dir" true) }}
+        {{ $c := default "" .command }}
+        {{ if hasPrefix $c "cat " }}
+            {{ $entries = $entries | append (dict "name" (trim (strings.TrimPrefix "cat " $c) " ") "dir" false) }}
+        {{ end }}
+    {{ end }}
+
+    {{ $lsOut := "" }}
+    {{ $lsPlain := "" }}
+    {{ range sort $entries "name" }}
+        {{ $id := cond .dir "dir" "terminal" }}
+        {{ $lsOut = printf "%s<span id='%s'>%s</span>  " $lsOut $id .name }}
+        {{ $lsPlain = printf "%s%s  " $lsPlain .name }}
+    {{ end }}
+
+    {{/* the .ls wrapper is white-space: pre-wrap, so the column gaps survive
+         (plain HTML would collapse them) and the line still wraps on a phone */}}
+    {{ $steps = $steps | append (dict
+        "anim" false
+        "ps1" $ps1Dir
+        "cmd" "<span id='terminal'>ls</span>"
+        "out" (printf "<span class='ls'>%s</span>" (trim $lsOut " "))
+        "plain" (printf "%s\n" (trim $lsPlain " "))) }}
+
+    {{/* --- help (still the last command the intro types) ---------------- */}}
+    {{/* same dot-leader maths as a tree block, so the two line up visually */}}
+    {{ $mw := 0 }}
+    {{ range $menu }}{{ if gt (len .cmd) $mw }}{{ $mw = len .cmd }}{{ end }}{{ end }}
+    {{ $mw = add $mw 6 }}
+    {{ $mhang := add $mw 4 }}{{ if gt $mhang 24 }}{{ $mhang = 24 }}{{ end }}
+
+    {{/* the heading stays in the normal terminal colour — the orange is for
+         paths and command names, and a heading in it read as a directory */}}
+    {{ $helpOut := printf "<span class='tree' style='--hang: %dch'><strong><span id='terminal'>available commands</span></strong>" $mhang }}
+    {{ $helpPlain := "available commands\n" }}
+    {{ range $menu }}
+        {{ $dots := sub $mw (len .cmd) }}
+        {{ if lt $dots 3 }}{{ $dots = 3 }}{{ end }}
+        {{ $helpOut = printf "%s<span class='row' id='terminal'><span id='dir'>%s</span> %s %s</span>" $helpOut .cmd (strings.Repeat $dots ".") .desc }}
+        {{ $helpPlain = printf "%s%s %s %s\n" $helpPlain .cmd (strings.Repeat $dots ".") .desc }}
+    {{ end }}
+    {{ $helpOut = printf "%s</span>" $helpOut }}
+
+    {{ $steps = $steps | append (dict
+        "anim" true
+        "ps1" $ps1Dir
+        "cmd" "<span id='terminal'>help</span>"
+        "out" $helpOut
+        "plain" $helpPlain) }}
+
     {{/* --- trailing prompt, left blinking ------------------------------- */}}
-    {{ $steps = $steps | append (dict "ps1" $ps1Dir "cmd" "" "out" "") }}
+    {{ $steps = $steps | append (dict "anim" true "ps1" $ps1Dir "cmd" "" "out" "") }}
 
     {{ partial "partials/typeIndex.html" (dict
         "context"      .
@@ -148,5 +236,6 @@
         "stdoutdelay"  .Site.Params.Terminal.stdoutDelay
         "commanddelay" .Site.Params.Terminal.commandDelay
         "typing"       .Site.Params.Terminal.typing
-        "shell"        .Site.Params.Terminal.shell) }}
+        "shell"        .Site.Params.Terminal.shell
+        "user"         $t.userName) }}
 {{ end }}

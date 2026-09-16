@@ -37,14 +37,35 @@
         border: 0;
         opacity: 0;
     }
+
+    /* The easter-egg overlay. Fixed and attached to <body>, because both
+       #terminal-window and #content clip their overflow and would crop it.
+       The page defines no z-index anywhere and creates no stacking contexts,
+       so this sits on top uncontested. */
+    #matrix {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 9999;
+        background: #000;
+        cursor: pointer;
+    }
 </style>
 
+{{/* Only the steps the intro actually types get spans. The rest are still in
+     .steps — they are what the shell lets the visitor run, and they still feed
+     the crawler transcript below — they just have nowhere to draw until asked
+     for. Indices stay aligned with the JS array, which is what matters. */}}
 {{ range $i, $s := .steps }}
+{{- if $s.anim }}
 <span class="tw" id="ps1_{{ $i }}"></span> <span class="tw" id="cmd_{{ $i }}"></span> <br>
 {{- if $s.out }}
 <span class="tw" id="out_{{ $i }}"></span> <br><br>
 {{- end }}
 {{ end }}
+{{- end }}
 
 {{/* Tag-free transcript of the exact same data, for crawlers and no-JS.
      Generated from .steps so it can never go stale. */}}
@@ -61,7 +82,7 @@
 </pre>
 
 {{- $js := slice }}
-{{- range .steps }}{{ $js = $js | append (dict "ps1" (printf "%v" .ps1) "cmd" (printf "%v" .cmd) "out" (printf "%v" .out)) }}{{ end }}
+{{- range .steps }}{{ $js = $js | append (dict "ps1" (printf "%v" .ps1) "cmd" (printf "%v" .cmd) "out" (printf "%v" .out) "anim" (default false .anim)) }}{{ end }}
 {{- $typing := .typing | default dict }}
 {{- $shell := .shell | default dict }}
 
@@ -402,7 +423,13 @@
                 : (g.enabled === true || g.enabled === "true" || g.enabled === 1),
             denied: g.denied === undefined || g.denied === ""
                 ? "denied"
-                : String(g.denied)
+                : String(g.denied),
+            matrixSeconds: isFinite(Number(g.matrixseconds)) && g.matrixseconds !== undefined
+                && g.matrixseconds !== ""
+                ? Number(g.matrixseconds)
+                : 7,
+            /* used by the sudo easter egg, so the joke names the right person */
+            userName: {{ .user | default "you" | jsonify | safeJS }}
         };
     })({{ $shell | jsonify | safeJS }});
 
@@ -422,6 +449,114 @@
 
     function norm(s) { return s.trim().replace(/\s+/g, " "); }
 
+    /* ------------------------------------------------------------- rain --- */
+
+    /* True while the overlay owns the screen. The shell's own key handlers
+       check it, otherwise Enter would keep submitting commands behind it. */
+    let rainActive = false;
+
+    /* half-width katakana, the glyphs the film's title sequence used, with
+       digits mixed in; all of them are one cell wide in a monospace face */
+    const GLYPHS = "ｱｲｳｴｵｶｷｸｹｺｻｼｽｾｿﾀﾁﾂﾃﾄﾅﾆﾇﾈﾉﾊﾋﾌﾍﾎﾏﾐﾑﾒﾓﾔﾕﾖﾗﾘﾙﾚﾛﾜﾝ0123456789";
+
+    function matrixRain(onDone) {
+        if (rainActive) { if (onDone) onDone(); return; }
+
+        const canvas = document.createElement("canvas");
+        const ctx = canvas.getContext ? canvas.getContext("2d") : null;
+        if (!ctx) { if (onDone) onDone(); return; }   /* no canvas, no rain */
+
+        canvas.id = "matrix";
+        canvas.setAttribute("aria-hidden", "true");
+        document.body.appendChild(canvas);
+        rainActive = true;
+
+        const FONT = 16;
+        let cols = 0, drops = [], raf = 0, timer = 0;
+
+        function size() {
+            /* devicePixelRatio keeps the glyphs crisp on a retina screen */
+            const dpr = window.devicePixelRatio || 1;
+            canvas.width = Math.floor(window.innerWidth * dpr);
+            canvas.height = Math.floor(window.innerHeight * dpr);
+            ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+            cols = Math.ceil(window.innerWidth / FONT);
+            /* start each column at a random height so it does not fall as a wall */
+            drops = [];
+            for (let i = 0; i < cols; i++) {
+                drops.push(Math.random() * -50);
+            }
+            ctx.fillStyle = "#000";
+            ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+        }
+
+        function frame() {
+            /* a translucent wash instead of a clear: what is already drawn
+               fades out over a few frames, which is the trail */
+            ctx.fillStyle = "rgba(0, 0, 0, 0.06)";
+            ctx.fillRect(0, 0, window.innerWidth, window.innerHeight);
+            ctx.font = FONT + "px " + "ui-monospace, Menlo, Consolas, monospace";
+            ctx.textBaseline = "top";
+
+            for (let i = 0; i < cols; i++) {
+                const ch = GLYPHS.charAt(Math.floor(Math.random() * GLYPHS.length));
+                const x = i * FONT;
+                const y = drops[i] * FONT;
+
+                /* the leading glyph is near-white, the rest are terminal green */
+                ctx.fillStyle = "#c9ffe8";
+                ctx.fillText(ch, x, y);
+                ctx.fillStyle = "#23e298";
+                ctx.fillText(GLYPHS.charAt(Math.floor(Math.random() * GLYPHS.length)),
+                             x, y - FONT);
+
+                if (y > window.innerHeight && Math.random() > 0.975) drops[i] = 0;
+                drops[i] += 0.5 + Math.random() * 0.5;
+            }
+            raf = requestAnimationFrame(frame);
+        }
+
+        function stop() {
+            if (!rainActive) return;
+            rainActive = false;
+            cancelAnimationFrame(raf);
+            clearTimeout(timer);
+            window.removeEventListener("resize", size);
+            window.removeEventListener("keydown", onKey, true);
+            canvas.removeEventListener("click", onClick);
+            if (canvas.parentNode) canvas.parentNode.removeChild(canvas);
+            if (onDone) onDone();
+        }
+
+        /* Captured on the window AND stopped there. `#stdin` still holds focus
+           underneath, so an Enter that merely set a flag would reach its
+           handler and submit an empty line behind the overlay. */
+        function onKey(e) {
+            if (e.metaKey || e.ctrlKey || e.altKey) return;   /* Cmd+R stays Cmd+R */
+            e.preventDefault();
+            e.stopPropagation();
+            stop();
+        }
+
+        /* On the click, not the pointerdown: tearing the canvas down on the way
+           down would let the mouseup land on a link underneath and navigate
+           away. Stopping it here also keeps the shell's document-level refocus
+           handler out of it — the exit puts the keyboard back itself. */
+        function onClick(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            stop();
+        }
+
+        window.addEventListener("keydown", onKey, true);
+        canvas.addEventListener("click", onClick);
+        window.addEventListener("resize", size);
+
+        size();
+        frame();
+        timer = setTimeout(stop, Math.max(1, SHELL.matrixSeconds) * 1000);
+    }
+
     function startShell() {
         if (!SHELL.enabled) return;
 
@@ -439,7 +574,6 @@
         });
 
         const PS1 = STEPS[STEPS.length - 1].ps1;
-        const ALLOWED = Array.from(KNOWN.keys()).concat("echo").join(", ");
 
         const stdin = document.createElement("input");
         stdin.id = "stdin";
@@ -454,7 +588,6 @@
         let live = document.getElementById("cmd_" + (STEPS.length - 1));
         /* ...and the template already emitted the <br> that closes it */
         let needBr = false;
-        let hinted = false;
         const history = [];
         let hpos = 0;
 
@@ -482,6 +615,29 @@
             draw();
         }
 
+        /* Not on any list, by design. Returns the line to print before the
+           rain — "" means go straight in — or null for "not an egg at all". */
+        function eggFor(cmd) {
+            if (cmd === "matrix") return "";
+            if (cmd === "xyzzy") return "Nothing happens.";
+            if (/^sudo(\s|$)/.test(cmd)) {
+                return SHELL.userName +
+                       " is not in the sudoers file. This incident will be reported.";
+            }
+            return null;
+        }
+
+        /* someone who asked for less motion gets told what they missed */
+        function rain(done) {
+            if (reduced) {
+                put("<span id='terminal'>somewhere, quietly, it is raining.</span>");
+                br(); br();
+                done();
+                return;
+            }
+            matrixRain(function () { focus(); done(); });
+        }
+
         function run() {
             const raw = stdin.value;
             const cmd = norm(raw);
@@ -494,9 +650,27 @@
             if (cmd) {
                 history.push(raw);
 
+                /* `!== null`, not truthiness: `matrix` has nothing to say and
+                   an empty string would fall through to `matrix: denied` */
+                const egg = eggFor(cmd);
+                if (egg !== null) {
+                    if (egg) {
+                        put("<span id='terminal'>" + esc(egg) + "</span>");
+                        br(); br();
+                    }
+                    stick();
+                    hpos = history.length;
+                    rain(prompt);      /* the prompt comes back when it stops */
+                    return;
+                }
+
                 let out = "", hasOut = false;
 
-                if (KNOWN.has(cmd)) {
+                if (/^ls(\s|$)/.test(cmd) && KNOWN.has("ls")) {
+                    /* `ls`, `ls -lah`, `ls -la /` — the listing never changes */
+                    out = KNOWN.get("ls");
+                    hasOut = !!out;
+                } else if (KNOWN.has(cmd)) {
                     out = KNOWN.get(cmd);
                     hasOut = !!out;                 /* `cd me` prints nothing */
                 } else if (/^echo(\s|$)/.test(cmd)) {
@@ -504,13 +678,9 @@
                           esc(raw.replace(/^\s*echo\s?/, "")) + "</span>";
                     hasOut = true;                  /* a bare `echo` prints a blank line */
                 } else {
+                    /* just the refusal: `help` is what points anywhere */
                     out = "<span id='terminal'>" + esc(cmd.split(" ")[0]) + ": " +
                           esc(SHELL.denied) + "</span>";
-                    /* nothing advertises what is allowed, so say it once */
-                    if (!hinted) {
-                        hinted = true;
-                        out += "<br><span id='terminal'>try: " + esc(ALLOWED) + "</span>";
-                    }
                     hasOut = true;
                 }
 
@@ -525,9 +695,14 @@
             try { stdin.focus({ preventScroll: true }); } catch (e) { stdin.focus(); }
         }
 
-        stdin.addEventListener("input", draw);
+        stdin.addEventListener("input", function () {
+            /* paste and IME can commit text without a keydown we swallowed */
+            if (rainActive) { stdin.value = ""; return; }
+            draw();
+        });
 
         stdin.addEventListener("keydown", function (e) {
+            if (rainActive) { e.preventDefault(); return; }
             if (e.key === "Enter") { e.preventDefault(); run(); return; }
             if (e.key === "ArrowUp") {
                 e.preventDefault();
@@ -571,6 +746,10 @@
 
         for (let i = 0; i < STEPS.length; i++) {
             const step = STEPS[i];
+
+            /* steps the intro does not perform have no spans to draw into;
+               they exist so the shell can run them on request */
+            if (!step.anim) continue;
 
             /* the shell prints its own prompt; it is not typed */
             await typewriter(step.ps1, "ps1_" + i, { perChar: CFG.ps1Delay });

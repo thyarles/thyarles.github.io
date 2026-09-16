@@ -46,13 +46,17 @@ Params:
       autoScroll: true     # follow the bottom unless the visitor scrolls up
       skippable: true      # a click or a keypress finishes it immediately
 
-    # Note: once the animation finishes the prompt accepts real input. The
-    # allowed commands are exactly the ones the transcript just demonstrated —
-    # they are read back out of it, so this never needs updating when a tree is
-    # added — plus `echo`. Anything else prints the `denied` message.
+    # Note: once the animation finishes the prompt accepts real input. What it
+    # accepts is every step the session is built from — the profile, neofetch,
+    # every tree, `ls` and `help` — whether or not the opening animation typed
+    # it out, plus `echo`. `help` prints that list and so does the refusal
+    # hint, both built from the same place, so neither needs updating when a
+    # tree is added. Anything else prints the `denied` message.
+    # (And three things that are on no list at all: find them or don't.)
     shell:
       enabled: true
       denied: denied
+      matrixSeconds: 7     # how long the rain falls before it stops by itself
 
     description: |
       - Bachelor's in Computer Engineering
@@ -85,11 +89,15 @@ Params:
       - ["InTech", "30+ years, since age 11"]
       - ["Battery", "caffeine"]
 
-  # Note: every entry becomes one `tree <folderName>` block in the terminal.
-  # Optional per-tree keys: `command` (default "tree <folderName>") and
-  # `caption` (default "<n> directories, click one of them to read it").
+  # Note: every entry becomes one `tree <folderName>` block in the terminal,
+  # runnable at the prompt and listed by `help`, but no longer played by the
+  # opening animation. Optional per-tree keys: `command` (default
+  # "tree <folderName>"), `caption` (default "<n> directories, click one of
+  # them to read it"), `desc` (what `help` says about it, default "<n> entries")
+  # and `demo: true` (put this one back in the opening animation).
   Trees:
     - folderName: skills
+      desc: certifications, verifiable
       files:
         - - DevOps
           - https://www.credly.com/users/thyarles/badges
@@ -123,6 +131,7 @@ Params:
           - "1 of 32 hackers picked by TSE to test e-voting"
 
     - folderName: publications
+      desc: papers and slides
       files:
         - - Low cost Braille printer, 2008
           - https://www.provadigital.com.br/docs/braille.pdf
@@ -134,6 +143,8 @@ Params:
           - https://www.researchgate.net/profile/Charles-Santos-10/publication/385553867_How_easy_is_to_large_language_models_hallucinate/links/679eafe896e7fb48b9ad762b/How-easy-is-to-large-language-models-hallucinate.pdf
 
     - folderName: contact
+      desc: how to reach me
+      demo: true                       # the one tree the intro plays
       command: cat contact.txt
       caption: 4 ways to reach me, click one of them
       files:
