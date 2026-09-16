@@ -46,6 +46,14 @@ Params:
       autoScroll: true     # follow the bottom unless the visitor scrolls up
       skippable: true      # a click or a keypress finishes it immediately
 
+    # Note: once the animation finishes the prompt accepts real input. The
+    # allowed commands are exactly the ones the transcript just demonstrated —
+    # they are read back out of it, so this never needs updating when a tree is
+    # added — plus `echo`. Anything else prints the `denied` message.
+    shell:
+      enabled: true
+      denied: denied
+
     description: |
       - Bachelor's in Computer Engineering
       - Degree in Statistics suspended (50%)
