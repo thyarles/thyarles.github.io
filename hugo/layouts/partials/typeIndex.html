@@ -38,6 +38,13 @@
         opacity: 0;
     }
 
+    /* The session ships as real markup — working links and all — so that a
+       visitor without JavaScript, and any crawler that does not run it, gets
+       the whole thing. The script empties it and types it out instead; this
+       rule stops the full copy being painted for an instant first. Without
+       the `js` class (no JavaScript) the transcript simply stays visible. */
+    html.js #transcript:not(.ready) { display: none; }
+
     /* The easter-egg overlay. Fixed and attached to <body>, because both
        #terminal-window and #content clip their overflow and would crop it.
        The page defines no z-index anywhere and creates no stacking contexts,
@@ -54,35 +61,37 @@
     }
 </style>
 
-{{/* Only the steps the intro actually types get spans. The rest are still in
-     .steps — they are what the shell lets the visitor run, and they still feed
-     the crawler transcript below — they just have nowhere to draw until asked
-     for. Indices stay aligned with the JS array, which is what matters. */}}
-{{ range $i, $s := .steps }}
-{{- if $s.anim }}
-<span class="tw" id="ps1_{{ $i }}"></span> <span class="tw" id="cmd_{{ $i }}"></span> <br>
+{{/* Set the flag before the transcript below is parsed, so the CSS rule that
+     hides it is already in force at first paint and nothing flashes. */}}
+<script>
+document.documentElement.className += " js";
+/* Failsafe: the transcript below is hidden on the strength of that class and
+   is only revealed again by the main script. If that script never gets that
+   far — a syntax error, a blocked inline script — the page would be blank, so
+   put the static session back. A successful run has already set the class and
+   this does nothing. */
+setTimeout(function () {
+    var t = document.getElementById("transcript");
+    if (t && !t.className) t.className = "ready";
+}, 2000);
+</script>
+
+{{/* The whole session, rendered as real markup: every command, every output,
+     every link. This is the page for anyone without JavaScript and for any
+     crawler that does not run it. The script reads it, empties the steps the
+     intro types, drops the ones it does not, and keeps the rest to replay when
+     the visitor asks for them — so this markup is also the shell's command
+     table, and there is only ever one copy of the content in the page. */}}
+<div id="transcript">
+{{- range $i, $s := .steps }}
+<span class="step" data-anim="{{ if $s.anim }}1{{ else }}0{{ end }}"><span class="tw" id="ps1_{{ $i }}">{{ $s.ps1 | safeHTML }}</span> <span class="tw" id="cmd_{{ $i }}">{{ $s.cmd | safeHTML }}</span> <br>
 {{- if $s.out }}
-<span class="tw" id="out_{{ $i }}"></span> <br><br>
+<span class="tw" id="out_{{ $i }}">{{ $s.out | safeHTML }}</span> <br><br>
 {{- end }}
-{{ end }}
+</span>
 {{- end }}
+</div>
 
-{{/* Tag-free transcript of the exact same data, for crawlers and no-JS.
-     Generated from .steps so it can never go stale. */}}
-{{- $lines := slice }}
-{{- range .steps }}
-    {{- $lines = $lines | append (printf "%s %s" (plainify .ps1) (plainify .cmd)) }}
-    {{- $out := "" }}
-    {{/* plainify turns <br> into newlines on its own, so .out needs no pre-pass */}}
-    {{- with .plain }}{{ $out = . }}{{ else }}{{ $out = printf "%s\n" (plainify (printf "%v" .out)) }}{{ end }}
-    {{- if trim $out "\n" }}{{ $lines = $lines | append $out }}{{ end }}
-{{- end }}
-<pre style="display: none">
-{{- delimit $lines "\n" }}
-</pre>
-
-{{- $js := slice }}
-{{- range .steps }}{{ $js = $js | append (dict "ps1" (printf "%v" .ps1) "cmd" (printf "%v" .cmd) "out" (printf "%v" .out) "anim" (default false .anim)) }}{{ end }}
 {{- $typing := .typing | default dict }}
 {{- $shell := .shell | default dict }}
 
@@ -90,7 +99,35 @@
 (function () {
     "use strict";
 
-    const STEPS = {{ $js | jsonify | safeJS }};
+    /* Read the session out of the markup above rather than being handed a
+       second copy of it as JSON. The page carries the content once. */
+    const TRANSCRIPT = document.getElementById("transcript");
+
+    const STEPS = Array.prototype.map.call(
+        TRANSCRIPT ? TRANSCRIPT.querySelectorAll(".step") : [],
+        function (el, i) {
+            const ps1 = document.getElementById("ps1_" + i);
+            const cmd = document.getElementById("cmd_" + i);
+            const out = document.getElementById("out_" + i);
+            return {
+                el: el,
+                anim: el.getAttribute("data-anim") === "1",
+                ps1: ps1 ? ps1.innerHTML : "",
+                cmd: cmd ? cmd.innerHTML : "",
+                out: out ? out.innerHTML : ""
+            };
+        });
+
+    /* Blank what the intro will type, discard what it will not, and only then
+       let the transcript be seen: from here the page looks as it always did. */
+    STEPS.forEach(function (s, i) {
+        if (!s.anim) { s.el.parentNode.removeChild(s.el); return; }
+        ["ps1_", "cmd_", "out_"].forEach(function (p) {
+            const el = document.getElementById(p + i);
+            if (el) el.innerHTML = "";
+        });
+    });
+    if (TRANSCRIPT) TRANSCRIPT.className = "ready";
 
     /* the three knobs the bash theme has always shipped, still honoured so a
        plain theme config keeps meaning what it used to mean */
@@ -560,7 +597,10 @@
     function startShell() {
         if (!SHELL.enabled) return;
 
-        const host = document.getElementById("content");
+        /* append inside the transcript, so new lines continue the same inline
+           flow the intro left off in rather than starting after a block */
+        const host = document.getElementById("transcript") ||
+                     document.getElementById("content");
         if (!host) return;
 
         /* The transcript is its own whitelist: whatever it just demonstrated is
