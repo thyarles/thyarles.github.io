@@ -19,6 +19,33 @@ Params:
     pcName: t7
     workDir: me
     profile: whoami.txt
+
+    # Note: how the terminal types. Every key is optional and falls back to the
+    # value shown here. Only the command line is typed — a real shell prints its
+    # prompt and its output instantly, so the realism is in the pauses between
+    # them. Set typoChance or jitter to 0 to switch that trait off; set
+    # enabled: false to paint the whole transcript at once.
+    typing:
+      enabled: true
+      charDelay: 55        # ms per visible character of a command
+      jitter: 0.45         # +/- fraction around charDelay; 0 = metronome
+      wordPause: 80        # extra ms after a space, dot, slash, dash
+      thinkChance: 0.03    # per character, odds of a "hold on" pause
+      thinkPauseMin: 220
+      thinkPauseMax: 520
+      typoChance: 0.035  # per character, odds of hitting a neighbouring key
+      typoMaxPerCmd: 2
+      typoNoticeMin: 180   # how long the mistake sits there before the fix
+      typoNoticeMax: 420
+      backspaceDelay: 55
+      typoResume: 110      # beat between the last backspace and retyping
+      startPause: 300      # before the first prompt
+      promptPause: 220     # prompt is up, hands reach for the keyboard
+      enterPause: 200      # command done -> Enter -> the program runs
+      outputPause: 320     # output done -> shell hands the prompt back
+      autoScroll: true     # follow the bottom unless the visitor scrolls up
+      skippable: true      # a click or a keypress finishes it immediately
+
     description: |
       - Bachelor's in Computer Engineering
       - Degree in Statistics suspended (50%)

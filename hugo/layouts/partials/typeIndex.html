@@ -14,6 +14,12 @@
         overflow: hidden;
         animation: blink 500ms linear infinite alternate;
     }
+
+    /* the cursor is the only thing still moving once the transcript is done;
+       a visitor who asked for less motion gets a steady block instead */
+    @media (prefers-reduced-motion: reduce) {
+        .tw:after { animation: none; }
+    }
 </style>
 
 {{ range $i, $s := .steps }}
@@ -39,57 +45,354 @@
 
 {{- $js := slice }}
 {{- range .steps }}{{ $js = $js | append (dict "ps1" (printf "%v" .ps1) "cmd" (printf "%v" .cmd) "out" (printf "%v" .out)) }}{{ end }}
+{{- $typing := .typing | default dict }}
 
 <script type="text/javascript">
+(function () {
+    "use strict";
+
     const STEPS = {{ $js | jsonify | safeJS }};
 
-    const ps1Delay = {{ .ps1delay | default 0 }},
-          stdoutDelay = {{ .stdoutdelay | default 0 }},
-          commandDelay = {{ .commanddelay | default 0 }};
+    /* the three knobs the bash theme has always shipped, still honoured so a
+       plain theme config keeps meaning what it used to mean */
+    const LEGACY = {
+        ps1:    Number({{ .ps1delay | default 0 }})     || 0,
+        stdout: Number({{ .stdoutdelay | default 0 }})  || 0,
+        cmd:    Number({{ .commanddelay | default 0 }}) || 0
+    };
 
-    async function typewriter(text, elementId, waitAfter) {
-        const el = document.getElementById(elementId);
-        if (!el || !text) return;
+    const DEFAULTS = {
+        enabled:        true,
+        charDelay:      LEGACY.cmd > 0 ? LEGACY.cmd : 55, // ms per typed character
+        jitter:         0.45,   // +/- fraction around charDelay; 0 is a metronome
+        wordPause:      80,     // extra beat after a space or a separator
+        thinkChance:    0.03,   // per character, odds of a "hold on" pause
+        thinkPauseMin:  220,
+        thinkPauseMax:  520,
+        typoChance:     0.035,  // per character, odds of hitting the wrong key
+        typoMaxPerCmd:  2,
+        typoNoticeMin:  180,    // how long the mistake sits there before the fix
+        typoNoticeMax:  420,
+        backspaceDelay: 55,     // deleting is faster and steadier than typing
+        typoResume:     110,
+        startPause:     300,    // before the first prompt shows up
+        promptPause:    220,    // prompt on screen, hands reaching the keyboard
+        enterPause:     200,    // command done -> Enter -> the program runs
+        outputPause:    320,    // output done -> shell hands the prompt back
+        ps1Delay:       LEGACY.ps1,     // the shell prints PS1; keep this 0
+        stdoutDelay:    LEGACY.stdout,  // programs dump output; keep this 0
+        autoScroll:     true,
+        skippable:      true
+    };
 
-        let out = "", i = 0;
-        const wait = () => new Promise(r => setTimeout(r, waitAfter));
-        const render = () => el.innerHTML = out;
-
-        el.style.setProperty("--cursor-visibility", "visible");
-
-        while (i < text.length) {
-            const ch = text.charAt(i);
-
-            // markup and entities are emitted whole and cost no time,
-            // only characters the visitor actually sees are paced
-            if (ch === "<" || ch === "&") {
-                const close = text.indexOf(ch === "<" ? ">" : ";", i);
-                const stop = close === -1 ? i : close;
-                out += text.slice(i, stop + 1);
-                i = stop + 1;
-                if (ch === "<") continue;
-            } else {
-                out += ch;
-                i++;
-            }
-
-            requestAnimationFrame(render);
-            if (waitAfter > 0) await wait();
+    /* Hugo lower-cases param keys, so merge case-insensitively and coerce to
+       the type of the default. An explicit 0 or false has to survive, which is
+       also why the knobs are not run through Hugo's `default` on the way in. */
+    const CFG = (function (raw) {
+        const given = {};
+        if (raw && typeof raw === "object") {
+            for (const k in raw) given[k.toLowerCase()] = raw[k];
         }
+        const out = {};
+        for (const k in DEFAULTS) {
+            const v = given[k.toLowerCase()];
+            if (v === undefined || v === null || v === "") { out[k] = DEFAULTS[k]; continue; }
+            if (typeof DEFAULTS[k] === "number") {
+                const n = Number(v);
+                out[k] = isFinite(n) ? n : DEFAULTS[k];
+            } else if (typeof DEFAULTS[k] === "boolean") {
+                out[k] = (v === true || v === "true" || v === 1);
+            } else {
+                out[k] = v;
+            }
+        }
+        return out;
+    })({{ $typing | jsonify | safeJS }});
 
-        render();
-        el.style.setProperty("--cursor-visibility", "collapse");
+    /* ------------------------------------------------------------ motion --- */
+
+    const reduced = !!(window.matchMedia &&
+        window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+
+    /* instant means: paint everything that is left, right now */
+    let instant = reduced || !CFG.enabled;
+
+    const sleepers = new Set();
+
+    function sleep(ms) {
+        if (instant || !(ms > 0)) return Promise.resolve();
+        return new Promise(function (resolve) {
+            const entry = { resolve: resolve, id: 0 };
+            entry.id = setTimeout(function () { sleepers.delete(entry); resolve(); }, ms);
+            sleepers.add(entry);
+        });
     }
 
-    (async () => {
-        for (let i = 0; i < STEPS.length; i++) {
-            await typewriter(STEPS[i].ps1, "ps1_" + i, ps1Delay);
-            await typewriter(STEPS[i].cmd, "cmd_" + i, commandDelay);
-            await typewriter(STEPS[i].out, "out_" + i, stdoutDelay);
+    function skipAll() {
+        if (instant) return;
+        instant = true;
+        sleepers.forEach(function (e) { clearTimeout(e.id); e.resolve(); });
+        sleepers.clear();
+    }
+
+    /* -------------------------------------------------------- autoscroll --- */
+
+    /* #content is the only scroll container on the page, and it is this
+       script's own parent - its opening tag is already parsed, so the lookup
+       resolves even though we are running inside it */
+    const scroller = document.getElementById("content") ||
+                     document.scrollingElement || document.documentElement;
+
+    /* someone who asked for reduced motion gets the transcript whole and reads
+       it from the top, so following the bottom would be wrong for them */
+    let follow = CFG.autoScroll && !instant;
+    let scrollQueued = false;
+
+    function stick() {
+        if (!follow || scrollQueued) return;
+        scrollQueued = true;
+        requestAnimationFrame(function () {
+            scrollQueued = false;
+            if (follow) scroller.scrollTop = scroller.scrollHeight;
+        });
+    }
+
+    if (CFG.autoScroll) {
+        /* our own scrolling always lands at the bottom, so this only ever
+           unsticks when the visitor has pulled the transcript up by hand */
+        scroller.addEventListener("scroll", function () {
+            follow = (scroller.scrollHeight - scroller.scrollTop -
+                      scroller.clientHeight) <= 32;
+        }, { passive: true });
+    }
+
+    /* -------------------------------------------------------------- skip --- */
+
+    if (CFG.skippable) {
+        document.addEventListener("pointerdown", skipAll, { once: true, passive: true });
+        const onKey = function (e) {
+            /* leave Ctrl+F, Cmd+R and friends to the browser */
+            if (e.metaKey || e.ctrlKey || e.altKey) return;
+            document.removeEventListener("keydown", onKey);
+            skipAll();
+        };
+        document.addEventListener("keydown", onKey);
+    }
+
+    /* ---------------------------------------------------------- tokenise --- */
+
+    const TAG = 1, CHAR = 2;
+
+    /* markup is free and instant, a visible character costs a keystroke, and an
+       entity is one glyph: one keystroke, removed by one backspace */
+    function tokenise(html) {
+        const toks = [];
+        let i = 0;
+        while (i < html.length) {
+            const ch = html.charAt(i);
+            if (ch === "<") {
+                const end = html.indexOf(">", i);
+                if (end === -1) { toks.push({ t: CHAR, s: html.slice(i) }); break; }
+                toks.push({ t: TAG, s: html.slice(i, end + 1) });
+                i = end + 1;
+            } else if (ch === "&") {
+                const end = html.indexOf(";", i);
+                if (end === -1 || end - i > 10) {     /* a bare & is just a character */
+                    toks.push({ t: CHAR, s: ch }); i++;
+                } else {
+                    toks.push({ t: CHAR, s: html.slice(i, end + 1), ent: true });
+                    i = end + 1;
+                }
+            } else {
+                toks.push({ t: CHAR, s: ch });
+                i++;
+            }
+        }
+        return toks;
+    }
+
+    /* ------------------------------------------------------------- typos --- */
+
+    /* physical QWERTY neighbours: the key the finger actually lands on.
+       Deliberately free of < > & " ' so a mistype can never open a tag. */
+    const NEIGHBOURS = {
+        a: "qwsz",   b: "vghn",   c: "xdfv",   d: "erfcxs", e: "wsdr",
+        f: "drtgvc", g: "ftyhbv", h: "gyujnb", i: "ujko",   j: "huikmn",
+        k: "jiolm",  l: "kop.",   m: "njk,",   n: "bhjm",   o: "iklp",
+        p: "ol",     q: "wa",     r: "edft",   s: "awedxz", t: "rfgy",
+        u: "yhji",   v: "cfgb",   w: "qase",   x: "zsdc",   y: "tghu",
+        z: "asx",
+        "0": "9o", "1": "2q", "2": "13w", "3": "24e", "4": "35r",
+        "5": "46t", "6": "57y", "7": "68u", "8": "79i", "9": "80o",
+        ".": ",l/", ",": "mk.", "-": "0p", "/": ".,", "_": "0p", ":": "lp"
+    };
+
+    const SAFE = /^[A-Za-z0-9.,:/_+=-]$/;
+
+    function neighbourOf(ch) {
+        const low = ch.toLowerCase();
+        const row = NEIGHBOURS[low];
+        if (!row) return "";
+        const pick = row.charAt(Math.floor(Math.random() * row.length));
+        return ch === low ? pick : pick.toUpperCase();
+    }
+
+    /* ------------------------------------------------------------ timing --- */
+
+    function rnd(a, b) { return a + Math.random() * (b - a); }
+
+    /* triangular spread with mean 1, so jitter changes the rhythm without
+       changing the average speed; a flat random() still reads as a machine */
+    function jitter(base) {
+        const j = CFG.jitter;
+        if (!(j > 0)) return base;
+        const t = (Math.random() + Math.random()) / 2;
+        return base * (1 - j + 2 * j * t);
+    }
+
+    function show(el, on) {
+        el.style.setProperty("--cursor-visibility", on ? "visible" : "collapse");
+    }
+
+    /* -------------------------------------------------------- typewriter --- */
+
+    async function typewriter(text, elementId, opts) {
+        const el = document.getElementById(elementId);
+        if (!el || !text) return;
+        opts = opts || {};
+        const perChar = opts.perChar || 0;
+
+        if (instant || perChar <= 0) {          /* prompts and program output */
+            el.innerHTML = text;
+            show(el, !!opts.keepCursor);
+            stick();
+            return;
         }
 
-        // leave the trailing prompt blinking, like a shell waiting for input
-        const last = document.getElementById("cmd_" + (STEPS.length - 1));
-        if (last) last.style.setProperty("--cursor-visibility", "visible");
+        const toks = tokenise(text);
+        let typosLeft = (opts.typos && CFG.typoChance > 0) ? CFG.typoMaxPerCmd : 0;
+
+        let done  = "";   /* committed markup: always a whole number of tokens */
+        let ghost = "";   /* wrong keys, plain text only, safe to slice        */
+        let i = 0;
+
+        function paint() { el.innerHTML = done + ghost; stick(); }
+
+        function plainAt(k) {
+            const t = toks[k];
+            return !!t && t.t === CHAR && !t.ent && SAFE.test(t.s);
+        }
+
+        function delayAfter(s) {
+            let d = jitter(perChar);
+            if (s === " " || s === "." || s === "/" || s === "-" ||
+                s === "_" || s === ",") d += CFG.wordPause;
+            if (s === "\n") d += CFG.wordPause * 2;
+            if (Math.random() < CFG.thinkChance)
+                d += rnd(CFG.thinkPauseMin, CFG.thinkPauseMax);
+            return d;
+        }
+
+        /* type the wrong keys, notice, backspace them, and leave `i` untouched
+           so the real characters still get typed for real afterwards */
+        async function mistype(at) {
+            const target = toks[at].s;
+
+            const kinds = [];
+            if (neighbourOf(target)) kinds.push("near", "near", "near");
+            kinds.push("double");
+            if (plainAt(at + 1)) kinds.push("swap");
+            const kind = kinds[Math.floor(Math.random() * kinds.length)];
+
+            let wrong;
+            if (kind === "swap") {
+                wrong = toks[at + 1].s + target;        /* fingers out of order */
+            } else if (kind === "double") {
+                wrong = target + target;
+            } else {
+                wrong = neighbourOf(target);
+                /* sometimes you only notice a keystroke or two later */
+                const over = Math.random() < 0.35 ? (Math.random() < 0.7 ? 1 : 2) : 0;
+                for (let k = 1; k <= over && plainAt(at + k); k++) wrong += toks[at + k].s;
+            }
+
+            for (const c of wrong) {                    /* mistakes are not slow */
+                ghost += c;
+                paint();
+                await sleep(jitter(perChar * 0.9));
+                if (instant) break;
+            }
+
+            await sleep(rnd(CFG.typoNoticeMin, CFG.typoNoticeMax));
+
+            while (ghost.length && !instant) {
+                ghost = ghost.slice(0, -1);
+                paint();
+                await sleep(jitter(CFG.backspaceDelay));
+            }
+
+            ghost = "";
+            paint();
+            await sleep(CFG.typoResume);
+        }
+
+        show(el, true);
+
+        while (i < toks.length) {
+            if (instant) break;
+
+            if (toks[i].t === TAG) { done += toks[i].s; i++; continue; }
+
+            if (typosLeft > 0 && plainAt(i) && Math.random() < CFG.typoChance) {
+                typosLeft--;
+                await mistype(i);
+                continue;
+            }
+
+            done += toks[i].s;
+            i++;
+            paint();
+            await sleep(delayAfter(toks[i - 1].s));
+        }
+
+        el.innerHTML = text;                    /* exact final state, always */
+        show(el, !!opts.keepCursor);
+        stick();
+    }
+
+    /* ------------------------------------------------------------ driver --- */
+
+    (async function () {
+        await sleep(CFG.startPause);
+
+        for (let i = 0; i < STEPS.length; i++) {
+            const step = STEPS[i];
+
+            /* the shell prints its own prompt; it is not typed */
+            await typewriter(step.ps1, "ps1_" + i, { perChar: CFG.ps1Delay });
+
+            if (step.cmd) {
+                await sleep(CFG.promptPause);
+                await typewriter(step.cmd, "cmd_" + i, {
+                    perChar: CFG.charDelay, typos: true, keepCursor: true
+                });
+
+                /* the cursor sits on the finished line until Enter is pressed */
+                await sleep(CFG.enterPause);
+                const el = document.getElementById("cmd_" + i);
+                if (el) show(el, false);
+            }
+
+            if (step.out) {
+                await typewriter(step.out, "out_" + i, { perChar: CFG.stdoutDelay });
+                await sleep(CFG.outputPause);
+            }
+        }
+
+        /* leave the trailing prompt blinking, like a shell waiting for input */
+        const tail = document.getElementById("cmd_" + (STEPS.length - 1));
+        if (tail) show(tail, true);
+        stick();
     })();
+})();
 </script>
