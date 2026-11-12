@@ -229,7 +229,7 @@
     {{/* --- trailing prompt, left blinking ------------------------------- */}}
     {{ $steps = $steps | append (dict "anim" true "ps1" $ps1Dir "cmd" "" "out" "") }}
 
-    {{ partial "partials/typeIndex.html" (dict
+    {{ partial "typeIndex.html" (dict
         "context"      .
         "steps"        $steps
         "ps1delay"     .Site.Params.Terminal.ps1Delay
