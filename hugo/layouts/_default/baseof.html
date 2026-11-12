@@ -3,6 +3,9 @@
     {{- partial "head.html" . -}}
     <body>
         {{- partial "header.html" . -}}
+        {{- /* the page's one heading: the full name, for screen readers and search engines */ -}}
+        {{- with .Site.Params.seo }}<h1 class="sr-only">{{ .fullName }}{{ range .alternateNames }}, {{ . }}{{ end }}</h1>{{ end }}
+        {{- if .IsHome }}{{ partial "csos.html" . }}{{ end }}
         <div id="terminal-window">
             <div id="titlebar">
                 <span class="dot red"></span>

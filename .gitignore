@@ -2,3 +2,10 @@ tmp
 
 # Hugo build cache (regenerated on every build)
 hugo/resources/
+
+# Originals and private sources for site images (never published)
+hugo/assets/img/_raw/
+
+# Private planning notes (would spoil easter eggs if published)
+notes/
+hugo/public/

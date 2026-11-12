@@ -141,3 +141,18 @@ body {
 }
 
 #content .tree .cap { margin-top: 1em; }
+
+/* ------------------------------------------------------------- headings ---
+   The page has one heading, the full name. It is for screen readers and
+   search engines; the terminal itself is the visible page. */
+.sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
