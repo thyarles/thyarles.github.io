@@ -8,7 +8,7 @@ Params:
   # the names go into the page's structured data (JSON-LD Person) so that every
   # spelling leads to the same person. Used by layouts/partials/head.html.
   seo:
-    title: "Charles Santos — Charles Henrique Gonçalves Santos (Charles HG Santos)"
+    title: "Charles HG Santos - Charles Henrique Gonçalves Santos"
     description: "Charles Henrique Gonçalves Santos (Charles HG Santos): DevOps lead at MPT and PhD student in Computer Science at UnB. Linux, Kubernetes (CKS, CKA, CKAD, LFCE, LFCS) and private LLMs for Smartlab."
     fullName: Charles Henrique Gonçalves Santos
     alternateNames:
