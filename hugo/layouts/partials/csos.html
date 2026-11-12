@@ -216,7 +216,9 @@ screen1.addEventListener("click", () => { if (!inTerm) boot(); });
 
 /* two desks: random on load; T (while the computer is off) swaps them — no hint on purpose */
 const SCENES = ["imac","dual"];
-function setScene(n){ if (SCENES.indexOf(n) < 0) n = SCENES[0]; document.documentElement.dataset.scene = n; $("#pc").src = IMG+"desk/setup-"+n+".webp"; }
+/* each desk names the tab; phones and crawlers keep the <title> from head.html */
+const TITLES = {imac:"Home - Charles HG Santos [Coder]", dual:"Work - Charles Santos [DevOps Leader]"};
+function setScene(n){ if (SCENES.indexOf(n) < 0) n = SCENES[0]; document.documentElement.dataset.scene = n; $("#pc").src = IMG+"desk/setup-"+n+".webp"; document.title = TITLES[n]; }
 const swapScene = () => setScene(SCENES[(SCENES.indexOf(document.documentElement.dataset.scene)+1)%SCENES.length]);
 /* capture phase: this has to see the key before the terminal's own input does */
 window.addEventListener("keydown", e => {
