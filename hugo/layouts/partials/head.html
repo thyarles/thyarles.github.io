@@ -1,0 +1,43 @@
+{{/* Project override of the bash theme's head.html: same tags, plus what a
+     search engine needs to tie this page to one person under every spelling of
+     the name (Params.seo in config.yaml). */}}
+{{- $seo := .Site.Params.seo | default dict -}}
+{{- $title := .Site.Title -}}
+{{- if .IsHome }}{{ with $seo.title }}{{ $title = . }}{{ end }}{{ else }}{{ $title = .Title }}{{ end -}}
+{{- $desc := .Description -}}
+{{- if .IsHome }}{{ $desc = default .Site.Params.description $seo.description }}{{ end -}}
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <title>{{ $title }}</title>
+    <meta name="description" content="{{ $desc }}" />
+    <link rel="canonical" href="{{ .Permalink }}">
+    <link rel="icon" type="image/x-icon" href="/docs/favicon.ico">
+    {{- if .IsHome }}
+    <meta name="author" content="{{ $seo.fullName }}">
+    <meta property="og:type" content="profile">
+    <meta property="og:title" content="{{ $title }}">
+    <meta property="og:description" content="{{ $desc }}">
+    <meta property="og:url" content="{{ .Permalink }}">
+    {{- $ld := dict
+        "@context" "https://schema.org"
+        "@type" "Person"
+        "name" $seo.fullName
+        "alternateName" $seo.alternateNames
+        "url" .Permalink
+        "jobTitle" $seo.jobTitle
+        "description" $desc
+        "sameAs" $seo.sameAs }}
+    <script type="application/ld+json">{{ $ld | jsonify | safeJS }}</script>
+    {{- end }}
+    <!-- Google tag (gtag.js) -->
+    <script async src="https://www.googletagmanager.com/gtag/js?id=G-GKP3DVQSC3"></script>
+    <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-GKP3DVQSC3');
+    </script>
+    {{ partial "partials/style.html" . }}
+</head>

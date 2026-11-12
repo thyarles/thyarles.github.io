@@ -1,0 +1,350 @@
+{{/* CS OS — the desk scene around the terminal.
+
+     On a desktop-sized screen with a mouse, the page opens on a photo of a desk.
+     Clicking a monitor (or the Tux sticker) boots the computer inside the glass
+     and, after the login, the site's real terminal (#terminal-window, driven by
+     partials/typeIndex.html) is moved into the monitor.
+
+     Everything here is switched on by the `csos` class, which the first script
+     below sets. Without it — phones, no JavaScript, crawlers — this partial
+     renders nothing visible and the page is the plain terminal it always was.
+
+     Images live in hugo/assets/img and are addressed by URL: the Pages workflow
+     publishes the whole repository, so /hugo/assets/... is served as-is. */}}
+<script>
+window.CSOS_ASSETS = {{ "hugo/assets/" | absURL }};
+</script>
+<script>
+(function () {
+    var ok = window.matchMedia &&
+             window.matchMedia("(min-width: 761px) and (pointer: fine)").matches;
+    /* ?desk forces the scene on (testing in a browser without a mouse) */
+    if (!ok && !/[?&]desk\b/.test(location.search)) return;
+    document.documentElement.className += " csos";
+    /* the terminal's intro waits on this; it resolves after the login */
+    window.CSOS_GATE = new Promise(function (r) { window.CSOS_OPEN = r; });
+    /* failsafe: if the scene script below never runs, give the terminal back */
+    setTimeout(function () {
+        if (!window.CSOS_UP) {
+            document.documentElement.className =
+                document.documentElement.className.replace(" csos", "");
+            window.CSOS_OPEN();
+        }
+    }, 3000);
+})();
+</script>
+
+<style>
+#desk, #box, #toast { display: none; }
+html.csos #desk { display: flex; }
+html.csos #box:not(.hidden) { display: flex; }
+html.csos #toast:not(.hidden) { display: block; }
+/* the terminal is only visible once it sits inside the monitor */
+html.csos #terminal-window { display: none; }
+html.csos #screen #terminal-window { display: flex; }
+
+/* theme palettes for the `theme` command; no data-theme = the site's own colours */
+html[data-theme=tokyo]{--bg:#1a1b26;--fg:#c0caf5;--acc:#7aa2f7;--ok:#9ece6a}
+html[data-theme=gruvbox]{--bg:#282828;--fg:#ebdbb2;--acc:#fabd2f;--ok:#b8bb26}
+html[data-theme=catppuccin]{--bg:#1e1e2e;--fg:#cdd6f4;--acc:#cba6f7;--ok:#a6e3a1}
+html[data-theme=lime]{--bg:#10180f;--fg:#d5e8c8;--acc:#a8d94a;--ok:#a8d94a}
+html[data-theme=crt]{--bg:#020a02;--fg:#33ff66;--acc:#33ff66;--ok:#33ff66}
+html.csos[data-theme] #screen #terminal-window{background:var(--bg)}
+html.csos[data-theme] #screen #content #terminal{color:var(--fg)}
+html.csos[data-theme] #screen #content #dir,
+html.csos[data-theme] #screen #content a{color:var(--acc)}
+html.csos[data-theme] #screen #content #user{color:var(--ok)}
+html.csos[data-theme] #screen #content .tw:after{color:var(--ok)}
+
+/* ---------- desk scene ---------- */
+#desk{position:fixed;inset:0;align-items:center;justify-content:center;overflow:hidden;background:#111}
+#desk *,#box *{box-sizing:border-box}
+#desk button{font-family:inherit;color:inherit;cursor:pointer}
+#crt{position:relative;flex:none;width:max(100vw,177.78vh);aspect-ratio:16/9;container-type:inline-size}
+#crt>img.pc{position:absolute;inset:0;width:100%;height:100%;user-select:none;-webkit-user-drag:none}
+.mon{position:absolute;background:linear-gradient(135deg,#0b0d0c 0 46%,#131615 46% 54%,#090a0a 54%);overflow:hidden;color:#b8ffc6;line-height:1.35;border-radius:.35cqw;cursor:pointer}
+.mon.on{cursor:default}
+/* the glow animates on its own layer, so the black panel never uncovers the photo's screen */
+.mon::before{content:"";position:absolute;inset:0;background:#061006;opacity:0}
+.mon.on::before{opacity:1;animation:warm .9s ease-out}
+.mon>*{position:relative;z-index:1}
+@keyframes warm{0%{filter:brightness(6);transform:scaleY(.01)}40%{transform:scaleY(1)}100%{filter:brightness(1)}}
+@keyframes tvoff{0%{transform:scale(1,1);filter:brightness(1)}55%{transform:scale(1,.004);filter:brightness(12)}85%{transform:scale(.004,.004);filter:brightness(30)}100%{transform:scale(0,0);filter:brightness(30)}}
+.mon::after{content:"";position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(rgba(0,0,0,.22) 0 1px,transparent 1px 3px);z-index:5}
+#screen pre{margin:0;white-space:pre-wrap;font:inherit}
+.mon.term{cursor:text}
+.mon.term::before{background:#0d0f10}
+#screen #terminal-window{position:absolute;inset:0;z-index:1;height:auto;font-size:inherit}
+#screen #titlebar{display:none}
+#screen #content{padding:1.3cqw 1.8cqw;scrollbar-width:none}
+#screen #content::-webkit-scrollbar{display:none}
+.mon.shut::before{opacity:0}
+.mon.shut #terminal-window{animation:tvoff .75s cubic-bezier(.6,0,.9,.4) forwards}
+#mview{position:absolute;inset:0;z-index:6;background:#000;display:flex;align-items:center;justify-content:center;cursor:pointer}
+#mview img,#mview video{width:auto!important;opacity:1!important;transition:none!important;max-width:100%;max-height:100%}
+#mview span{opacity:1!important;letter-spacing:0;font-weight:normal;position:absolute;left:0;bottom:0;background:#000a;color:#ccc;font:.7cqw monospace;padding:.2cqw .6cqw}
+#screen2{display:none;align-items:center;justify-content:center;flex-direction:column;gap:1cqw;font:bold 1.6cqw monospace;letter-spacing:.3cqw}
+#screen2 img{width:22%;opacity:0;transition:opacity 1.5s .8s}#screen2 span{opacity:0;transition:opacity 1.5s 1.4s}
+#screen2.on img,#screen2.on span{opacity:.9}
+.stk{position:absolute;display:flex;align-items:center;justify-content:center;white-space:nowrap}
+#cslogo{pointer-events:none;filter:drop-shadow(0 1px 1px #0004);transform:rotate(-5deg)}
+#cslogo img,#tux img{display:block;width:100%}
+#tux{position:absolute;padding:0;border:0;background:none;filter:drop-shadow(0 1px 1px #0005);transform:rotate(-6deg);z-index:3}
+#hint{position:absolute;bottom:3vh;left:50%;transform:translateX(-50%);color:#eee;font-size:13px;background:#000a;padding:5px 14px;border-radius:20px;z-index:4}
+#hint:empty{display:none}
+.obj{position:absolute;border:0;padding:0;background:none;transition:transform .2s;z-index:1}
+.obj::after{content:"";position:absolute;left:-6%;right:-6%;bottom:-.6cqw;height:1cqw;background:radial-gradient(ellipse at center,#0008,#0000 70%);z-index:-1;pointer-events:none}
+#o-note::after,.hung::after{display:none}
+.obj:hover{transform:scale(1.12) rotate(0)!important;z-index:6}
+.frame{border:.5cqw solid #6b4a2f;box-shadow:0 .5cqw 1cqw #0008;background:#000;aspect-ratio:5/6}
+.frame img,.paper img{display:block;width:100%;height:100%;object-fit:cover}
+#o-note{aspect-ratio:5/4;box-shadow:0 .3cqw .6cqw #0007}
+#o-modem{height:2.6cqw;background:#cfc6ac;border-radius:.3cqw;box-shadow:0 .4cqw .7cqw #0008;color:#555;font-size:.75cqw;text-align:left;padding:.3cqw .6cqw;white-space:nowrap;overflow:hidden}
+#o-modem i{display:inline-block;width:.45cqw;height:.45cqw;border-radius:50%;background:#700;margin:0 .2cqw}
+#o-modem.on i{animation:bl .2s infinite alternate}#o-modem.on i:nth-child(2n){animation-delay:.1s}
+@keyframes bl{to{background:#f33;box-shadow:0 0 5px #f33}}
+/* scene: iMac by the window */
+[data-scene=imac] #screen{left:31.05%;top:4.5%;width:48.45%;height:53.3%;font-size:1cqw;padding:1.6cqw 2.2cqw}
+[data-scene=imac] #tux{left:76.5%;top:59%;width:2.55cqw}
+[data-scene=imac] #cslogo{left:32%;top:60%;width:1.325cqw}
+[data-scene=imac] #o-eve{left:1.2%;top:6.2%;width:6.4%}
+[data-scene=imac] #o-mom{display:none}
+[data-scene=imac] #o-note{left:95.2%;top:16.5%;width:4.2%}
+[data-scene=imac] #o-modem{left:69%;top:70.6%;width:11.5%}
+/* scene: two monitors */
+[data-scene=dual] #screen{left:17.7%;top:22.6%;width:33.9%;height:35.7%;font-size:.72cqw;padding:1cqw 1.3cqw}
+[data-scene=dual] #screen2{display:flex;left:52.2%;top:22.3%;width:35.2%;height:36.8%}
+[data-scene=dual] #tux{left:71.5%;top:73.7%;width:2.5cqw}
+[data-scene=dual] #cslogo{left:85.25%;top:74%;width:1.2cqw}
+[data-scene=dual] #o-eve{display:none}
+[data-scene=dual] #o-mom{left:92.6%;top:36.5%;width:5.6%}
+[data-scene=dual] #o-note{left:57.5%;top:4%;width:4.4%}
+[data-scene=dual] #o-modem{left:64.5%;top:62.4%;width:11.5%}
+
+/* ---------- lightbox / toast ---------- */
+#box{position:fixed;inset:0;background:#000c;z-index:30;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:20px}
+#box img{max-width:80vw;max-height:74vh;box-shadow:0 10px 40px #000}
+#box p{max-width:60ch;margin:0;text-align:center;color:#e8dcc8;font-size:14px}
+#toast{position:fixed;left:50%;bottom:9vh;transform:translateX(-50%);background:#000d;color:#9f9;padding:8px 16px;border-radius:6px;font-size:12px;z-index:40;white-space:pre}
+#toast a{color:#9f9}
+@media (prefers-reduced-motion: reduce){
+    .mon.on::before,.mon.shut #terminal-window,#o-modem.on i{animation:none}
+}
+</style>
+
+<section id="desk" aria-hidden="true">
+  <div id="crt">
+    <img class="pc" id="pc" alt="">
+    <button class="obj frame hung" id="o-eve"><img alt=""></button>
+    <button class="obj frame" id="o-mom"><img alt=""></button>
+    <button class="obj paper" id="o-note"><img alt=""></button>
+    <button class="obj" id="o-modem" title="modem">56K&nbsp;<i></i><i></i><i></i><i></i> github</button>
+    <div class="mon" id="screen"><pre id="scr"></pre></div>
+    <div class="mon" id="screen2"><img data-src="brand/cs-logo.svg" alt=""><span>CS OS</span></div>
+    <span class="stk" id="cslogo"><img data-src="brand/cs-logo.svg" alt=""></span>
+    <button id="tux" title="Tux"><img data-src="brand/tux.webp" alt=""></button>
+  </div>
+  <div id="hint"></div>
+</section>
+<div id="box" class="hidden"><img alt=""><p></p></div>
+<div id="toast" class="hidden"></div>
+
+<script>
+(function () {
+"use strict";
+if (!/(^| )csos( |$)/.test(document.documentElement.className)) return;
+
+const IMG = window.CSOS_ASSETS + "img/", VIDEO = window.CSOS_ASSETS + "video/";
+const $ = s => document.querySelector(s);
+const Q = new URLSearchParams(location.search);
+const reduced = !!(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches);
+let skip = false, booted = false, inTerm = false, lang = "en", opened = false;
+const sleep = ms => new Promise(r => setTimeout(r, skip ? 0 : ms));
+document.querySelectorAll("#desk img[data-src]").forEach(i => { i.src = IMG + i.dataset.src; });
+
+/* ---------- sound (all synthesized, only ever after a click) ---------- */
+let ac; const ctx = () => ac || (ac = new (window.AudioContext || window.webkitAudioContext)());
+function tone(f,d=.12,type="square",v=.06,t=0){try{const c=ctx(),o=c.createOscillator(),g=c.createGain();o.type=type;o.frequency.value=f;g.gain.value=v;o.connect(g).connect(c.destination);o.start(c.currentTime+t);g.gain.setTargetAtTime(0,c.currentTime+t+d,.01);o.stop(c.currentTime+t+d+.05)}catch(e){}}
+function noise(d=1,v=.03,t=0,freq=900){try{const c=ctx(),b=c.createBuffer(1,c.sampleRate*d,c.sampleRate),a=b.getChannelData(0);for(let i=0;i<a.length;i++)a[i]=Math.random()*2-1;const s=c.createBufferSource(),g=c.createGain(),f=c.createBiquadFilter();f.type="bandpass";f.frequency.value=freq;s.buffer=b;g.gain.value=v;s.connect(f).connect(g).connect(c.destination);s.start(c.currentTime+t)}catch(e){}}
+const key = () => noise(.03,.05,0,2500+Math.random()*1500);
+function powerSound(){tone(55,.25,"sine",.25);noise(4,.02,0,300);for(let i=0;i<14;i++)noise(.04,.05,1+i*.11+Math.random()*.05,1800);tone(880,.18,"square",.05,2.4)}
+function modemSound(){[[1209,697],[1336,770],[1477,852],[1209,941],[1336,697],[1477,770],[1209,852]].forEach((p,i)=>{tone(p[0],.09,"sine",.06,i*.13);tone(p[1],.09,"sine",.06,i*.13)});tone(2100,.9,"sine",.05,1.1);tone(1300,.5,"square",.03,2.1);tone(2400,.5,"square",.03,2.3);noise(1.8,.07,2.7,1700);noise(1.2,.05,3.2,2600)}
+
+/* ---------- boot ---------- */
+const scr = $("#scr"), screen1 = $("#screen");
+/* looked up late: this script is parsed before the terminal markup exists */
+const termwin = () => document.getElementById("terminal-window");
+const put = t => { scr.textContent += t; screen1.scrollTop = 1e6; };
+async function typeOut(t, ms=45){ for (const ch of t){ put(ch); if(!skip) key(); await sleep(ms+Math.random()*40); } }
+async function boot(){
+  if (booted) return; booted = true; if (reduced) skip = true;
+  $("#hint").textContent = skip ? "" : "press any key to skip";
+  screen1.classList.add("on"); $("#screen2").classList.add("on"); powerSound(); await sleep(900);
+  put("PIXECOL BIOS v0.8 (C) a teenager with big plans\nCPU: Human 1x @ 1 coffee/h\n"); await sleep(500);
+  for (let m=0;m<=640;m+=64){ scr.textContent = scr.textContent.replace(/Memory Test:.*\n?$/,"")+`Memory Test: ${m}K OK\n`; await sleep(70); }
+  put("  640K ought to be enough for anybody.\n\nDetecting drives...\n"); await sleep(350);
+  put("  A: 5¼ floppy   [XT, DOS]\n  C: brain0       [fragmented, works]\n  D: braille0     [HP 420, modified]\n"); await sleep(700);
+  scr.textContent = "";
+  put("  GNU GRUB  version 2.12\n\n ┌──────────────────────────────────────┐\n │*CS OS                                │\n │ CS OS (recovery mode: more coffee)   │\n │ Windows (just kidding)               │\n └──────────────────────────────────────┘\n\n  Booting in ");
+  for (const n of [3,2,1]){ put(n+" "); if(!skip) tone(660,.04); await sleep(450); }
+  scr.textContent = "";
+  for (const s of ["first-pc.service — XT, DOS, no manual","internet.service — \"eu varava a noite\"","correio-braziliense-2001.service — Por trás do nick","braille-printer.service — R$433 vs R$15,000","tse-evoting-test-2009.service","msc-ncmonto.service — ontologies, UnB","smartlab.service","kubernetes.target","phd.service — UnB, Informática","eve.service — meow"]){ put("[  OK  ] Started "+s+"\n"); await sleep(190); }
+  put("[ WARN ] phd.service: still running...\n\nCS OS 1.0 (tty1)\n\n"); await sleep(500);
+  put("t7 login: "); await typeOut("charles.santos"); put("\nPassword: "); await typeOut("*******",90); await sleep(300);
+  put("\nLogin incorrect\n\nt7 login: "); if(!skip) tone(180,.2); await sleep(500); await typeOut("charles.santos"); put("\nPassword: "); await typeOut("********",70);
+  put("\nLast login: Fri Jul  6 2001 from correio-braziliense\n"); await sleep(700);
+  enterTerm();
+}
+/* the login is done: the real terminal moves into the glass and starts typing */
+function enterTerm(){
+  skip = false; inTerm = true; window.CSOS_OFF = false; scr.textContent = ""; $("#hint").textContent = "";
+  screen1.classList.add("term"); screen1.append(termwin());
+  if (!opened) { opened = true; window.CSOS_OPEN(); }
+  const i = document.getElementById("stdin"); if (i) i.focus();
+}
+function shutdown(){
+  if (shutdown.busy || !inTerm) return; shutdown.busy = true; closeViewer();
+  tone(140,.5,"sine",.2); noise(.6,.03,0,400);
+  window.CSOS_OFF = true; screen1.classList.add("shut");
+  setTimeout(() => {
+    document.body.append(termwin()); screen1.classList.remove("shut","term","on"); $("#screen2").classList.remove("on");
+    dressDesk(); inTerm = false; booted = false; skip = false; shutdown.busy = false;
+  }, 800);
+}
+$("#tux").onclick = $("#screen2").onclick = boot;
+screen1.addEventListener("click", () => { if (!inTerm) boot(); });
+
+/* two desks: random on load; T (while the computer is off) swaps them — no hint on purpose */
+const SCENES = ["imac","dual"];
+function setScene(n){ if (SCENES.indexOf(n) < 0) n = SCENES[0]; document.documentElement.dataset.scene = n; $("#pc").src = IMG+"desk/setup-"+n+".webp"; }
+const swapScene = () => setScene(SCENES[(SCENES.indexOf(document.documentElement.dataset.scene)+1)%SCENES.length]);
+/* capture phase: this has to see the key before the terminal's own input does */
+window.addEventListener("keydown", e => {
+  if (e.metaKey || e.ctrlKey || e.altKey) return;
+  const box = $("#box"), mv = $("#mview");
+  if (!box.classList.contains("hidden")) { if (e.key === "Escape") box.classList.add("hidden"); return; }
+  if (mv) {
+    /* iMac: the picture covers the terminal, so any key sends it away (but not the Enter that opened it) */
+    if (mv.parentNode === screen1) { if (performance.now() - mv.dataset.t > 250) { closeViewer(); e.preventDefault(); e.stopPropagation(); } return; }
+    if (e.key === "Escape") { closeViewer(); return; }
+  }
+  if (booted && !inTerm) { skip = true; $("#hint").textContent = ""; return; }
+  if (!booted && e.key.toLowerCase() === "t") swapScene();
+}, true);
+
+/* ---------- pictures on the wall (random every visit and every power-off) ---------- */
+const POOL = [
+ ["eve/eve-1.jpg","Eve. Head of QA."],["eve/eve-2.jpg","Eve. Walks on the keyboard to test input validation."],["eve/eve-3.jpg","Eve, reviewing a pull request."],["family/with-mom-2018.jpg","With mom."],["me/headphones-2023.jpg","People make it possible."],["me/paperartist-2014.jpg","Me, 2014 edition."],["me/sketch-cap.jpg","Me, sketched."],["love/gf-photo-2005.jpg",""],["art/beetle-papercraft.jpg","A paper Beetle I made a looong time ago."],["wallpapers/ipe.jpg","Ipê season in Brasília."],["books/shelf-2013.jpg","The shelf, 2013."],
+ ["love/para-meu-amor-2025.jpg","Para meu amor."],["misc/bom-dia-flor-do-dia.jpg","Bom dia, flor do dia!"],["misc/pen-since-2007.jpg","“Fui comprada em 2007… e ainda escrevo!”"],["misc/motto-tudo-da-certo.jpg","Tudo dá certo pra mim até quando não dá."],["misc/wednesday-handwriting.jpg","Fluency = spelling “Wednesday” by hand."],["misc/desk-sketch.jpg","The desk, before it existed."],["art/pixecol.jpg","PIXECOL — my company, when I was a teenager."],["art/doodle-sunset.jpg","A doodle."],
+ ["braille/adapted-head.jpg","braille.img — an HP 420 inkjet hacked into a Braille embosser for R$433 (2008)."],["braille/embossed-sample.png","braille.img — it actually embosses."],
+ ["press/superinteressante-2013-timidos-title.jpg","Shy. Shamelessly."],["talks/msc-ncmonto-2011-car.png","MSc defense, 2011: what is a car, really?"],["tse/tse-2009-room.png","TSE, 2009: testing Brazil’s e-voting machine. Photo: Fabio Pozzebom/Agência Brasil."],["books/fire-them-up-jerk.jpg","You do not need a book for that."],["talks/bitcot-qe-dijkstra.png","From my Quality Engineering talk at BitCot."],["phd/whiteboard-2026-2.jpg","PhD: it made sense at the time."]
+];
+const pick = (a,n) => [...a].sort(() => Math.random()-.5).slice(0,n);
+function dressDesk(){
+  const set = (id,[img,cap]) => { const b=$(id); b.dataset.img=img; b.dataset.cap=cap; const i=b.querySelector("img"); if(i) i.src=IMG+img;
+    b.style.transform = `rotate(${(Math.random()*16-8).toFixed(1)}deg)`; };
+  /* three wall spots (each desk shows two of them), three different pictures */
+  const f = pick(POOL,3); set("#o-eve",f[0]); set("#o-mom",f[1]); set("#o-note",f[2]);
+}
+document.querySelectorAll(".obj").forEach(b => { if (b.id !== "o-modem") b.onclick = () => { $("#box img").src = IMG+b.dataset.img; $("#box p").textContent = b.dataset.cap; $("#box").classList.remove("hidden"); }; });
+$("#box").onclick = () => $("#box").classList.add("hidden");
+function toast(html, ms=4200){ const e=$("#toast"); e.innerHTML=html; e.classList.remove("hidden"); clearTimeout(toast.t); toast.t=setTimeout(()=>e.classList.add("hidden"),ms); }
+$("#o-modem").onclick = () => { modemSound(); $("#o-modem").classList.add("on"); toast("ATDT github.com/thyarles ...");
+  /* the dial-up connects, then the page goes there itself: same tab, the back button returns to the desk */
+  setTimeout(() => { toast("CONNECT 56000"); $("#o-modem").classList.remove("on"); setTimeout(() => { location.href = "https://github.com/thyarles"; }, 900); }, 4300); };
+
+/* ---------- pictures: inside the monitor (iMac: over the terminal; two monitors: on the right one) ---------- */
+const FILES = {"tse-2009.jpg":"tse/tse-2009-room.png","me.jpg":"me/sketch-cap.jpg","eve.jpg":"eve/eve-2.jpg","braille.jpg":"braille/hp-deskjet-420.jpg","pixecol.jpg":"art/pixecol.jpg","beetle.jpg":"art/beetle-papercraft.jpg","desk.jpg":"misc/desk-sketch.jpg","pen.jpg":"misc/pen-since-2007.jpg","wednesday.jpg":"misc/wednesday-handwriting.jpg","timidos.jpg":"press/superinteressante-2013-timidos-title.jpg","ontology.png":"talks/msc-ncmonto-2011-car.png","phd.jpg":"phd/whiteboard-2026-2.jpg"};
+function show(title, html){
+  closeViewer(); const m = document.createElement("div"); m.id = "mview"; m.dataset.t = performance.now();
+  m.innerHTML = html + "<span></span>"; m.lastChild.textContent = title;
+  m.onclick = e => { e.stopPropagation(); if (e.target.tagName !== "VIDEO") closeViewer(); };
+  (document.documentElement.dataset.scene === "dual" ? $("#screen2") : screen1).append(m);
+}
+function openFile(n){ const p = FILES[n]; if (!p) return false; show("imv — "+n, `<img src="${IMG+p}" alt="">`); return true; }
+function closeViewer(){ const m = $("#mview"); if (m) m.remove(); }
+
+/* ---------- extra commands for the terminal (hooked from partials/typeIndex.html) ---------- */
+const S = {en:{who:"Charles Santos — hacker (2001 definition), builder of cheap Braille printers,\nSRE/K8s person, PhD student. Shy, allegedly.",loc:"Locale set. Everything is in English again.",nf:"not found"},
+           pt:{who:"Charles Santos — hacker (definição de 2001), construtor de impressoras Braille baratas,\nSRE/K8s, doutorando. Tímido, dizem.",loc:"Locale alterado. Agora é tudo em português, uai.",nf:"não encontrado"}};
+const FORT = ["Tudo dá certo pra mim até quando não dá.","\"Se o Charles deu OK, pode confiar.\" — a colleague","Testing shows the presence, not the absence of bugs. — Dijkstra","You do not need a book to teach you how to act like a jerk.","Fui comprada em 2007... e ainda escrevo! — a pen","To be fluent you must be able to write \"Wednesday\" properly."];
+const BR = "⠁⠃⠉⠙⠑⠋⠛⠓⠊⠚⠅⠇⠍⠝⠕⠏⠟⠗⠎⠞⠥⠧⠺⠭⠽⠵";
+const THEMES = ["","tokyo","gruvbox","catppuccin","lime","crt"];
+const pre = h => "<span id='terminal' style='white-space:pre-wrap'>" + h + "</span>";
+const later = ms => new Promise(r => setTimeout(r, ms));
+
+window.CSOS_CMD = function (cmd, raw, api) {
+  if (!inTerm) return undefined;
+  const a = cmd.split(" "), c = a.shift(), esc = api.esc;
+  switch (c) {
+    case "open":
+      if (!a[0]) return pre("usage: open &lt;file&gt;   (see ls)");
+      return openFile(a[0]) ? "" : pre("open: " + esc(a[0]) + ": " + S[lang].nf);
+    case "cat":
+      if (a.length) return undefined;                 /* real files are the terminal's own business */
+      openFile("eve.jpg"); return pre("cat: no file given, showing the cat.");
+    case "whoami": return pre(esc(S[lang].who));
+    case "fortune": return pre(esc(FORT[Math.random()*FORT.length|0]));
+    case "man":
+      if (a[0] === "ontology") { openFile("ontology.png"); return ""; }
+      if (a[0] === "hacker") return pre("<span id='dir'>HACKER(2001)</span>\n\nNAME\n   hacker — someone who stayed up all night to understand how it works.\n\nSEE ALSO\n   Correio Braziliense, 6 Jul 2001, “Por trás do nick”");
+      return pre("No manual entry for " + esc(a[0] || "nothing"));
+    case "braille": {
+      const t = a.join(" ").replace(/"/g,"").toLowerCase(); if (!t) return pre("usage: braille \"text\"");
+      const el = api.raw("<span id='terminal' style='font-size:1.6em'></span>").firstChild;
+      return (async () => { for (const ch of t) { const k = ch.charCodeAt(0)-97; el.textContent += k>=0&&k<26 ? BR[k] : ch===" " ? "⠀" : ch; noise(.05,.09,0,700); api.stick(); await later(90); } api.br(); return ""; })();
+    }
+    case "kubectl":
+      return a.join(" ").indexOf("get pods") === 0
+        ? pre("NAME                        READY   STATUS             RESTARTS   AGE\ncoffee-7d9f8b-x2kq          1/1     Running            4 (today)  3h\nphd-thesis-0                0/1     ContainerCreating  0          2y\nsleep-5c6b7-zzz             0/1     CrashLoopBackOff   365        1y\neve-daemonset-meow          1/1     Running            0          forever\nshyness-64f5d-hide          1/1     Terminating        0          decades")
+        : pre("error: try: kubectl get pods -n charles");
+    case "ssh":
+      modemSound(); api.put(pre("ATDT " + esc(a[0] || "provadigital.com.br") + " ... "));
+      return later(4200).then(() => pre("CONNECT 56000\nprovadigital:~$ ls\n<a href='https://github.com/thyarles' target='_blank' rel='noopener'>github.com/thyarles</a>"));
+    case "ping": {
+      modemSound(); const h = esc(a[0] || "provadigital.com.br");
+      return (async () => { for (let i=1;i<=4;i++) { api.put(pre(`64 bytes from ${h}: icmp_seq=${i} ttl=56 time=${(180+Math.random()*90).toFixed(0)} ms (dial-up)`)); await later(800); } return ""; })();
+    }
+    case "play":
+      if (a[0] !== "piano") return pre("usage: play piano");
+      show("mpv — piano-2018.mp4", `<video src="${VIDEO}piano-2018.mp4" controls autoplay></video>`); return "";
+    case "locale":
+      if (!a[0]) return pre("LANG=" + (lang === "pt" ? "pt_BR" : "en_US") + ".UTF-8");
+      lang = /^pt/i.test(a[0]) ? "pt" : "en"; return pre(S[lang].loc);
+    case "theme": {
+      const i = (THEMES.indexOf(document.documentElement.dataset.theme || "") + 1) % THEMES.length;
+      if (THEMES[i]) document.documentElement.dataset.theme = THEMES[i]; else delete document.documentElement.dataset.theme;
+      tone(520+i*90,.05); return pre("theme: " + (THEMES[i] || "default"));
+    }
+    case "cs": return pre("Counter-Terrorists win. (wrong CS)");
+    case "clear": api.clear(); return "";
+    case "shutdown": case "exit": case "poweroff": case "logout": shutdown(); return "";
+  }
+  return undefined;
+};
+/* what `help` and `ls` add when the terminal runs on this desk */
+window.CSOS_EXTRA = function (cmd) {
+  if (!inTerm) return "";
+  if (cmd === "help") {
+    const rows = [["open &lt;file&gt;","a picture (see ls)"],["theme","next colour theme"],["fortune","words to live by"],["exit","turn the computer off"]];
+    return "<span class='tree' style='--hang: 22ch'><strong><span id='terminal'><br>on this machine</span></strong>" +
+      rows.map(r => "<span class='row' id='terminal'><span id='dir'>" + r[0] + "</span> " + ".".repeat(Math.max(3, 18 - r[0].replace(/&lt;|&gt;/g,"x").length)) + " " + r[1] + "</span>").join("") + "</span>";
+  }
+  if (/^ls(\s|$)/.test(cmd)) return "<br><span class='ls'><span id='terminal'>" + Object.keys(FILES).join("  ") + "</span></span>";
+  return "";
+};
+
+dressDesk();
+setScene(Q.get("scene") || SCENES[Math.random()*SCENES.length|0]);
+window.CSOS_UP = true;
+/* test helpers: ?boot skips straight to the terminal, ?run=cmd;cmd then types those */
+if (Q.has("boot")) setTimeout(async () => {
+  skip = true; await boot();
+  const cmds = (Q.get("run") || "").split(";").filter(Boolean); if (!cmds.length) return;
+  document.dispatchEvent(new Event("pointerdown"));            /* skip the typed intro */
+  for (let n = 0; n < 100 && !document.getElementById("stdin"); n++) await later(100);
+  const i = document.getElementById("stdin");
+  for (const c of cmds) { i.value = c; i.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true })); await later(300); }
+}, 50);
+})();
+</script>
