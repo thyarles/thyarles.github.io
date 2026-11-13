@@ -12,7 +12,12 @@
     <title>{{ $title }}</title>
     <meta name="description" content="{{ $desc }}" />
     <link rel="canonical" href="{{ .Permalink }}">
-    <link rel="icon" type="image/x-icon" href="/docs/favicon.ico">
+    {{- /* The CS monogram, from the files at the repository root (Pages serves
+           them as they are). The .ico comes first and carries a size so that
+           browsers that understand SVG pick the SVG; Safari takes the .ico. */}}
+    <link rel="icon" href="/favicon.ico" sizes="32x32">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
     {{- if .IsHome }}
     <meta name="author" content="{{ $seo.fullName }}">
     <meta property="og:type" content="profile">
