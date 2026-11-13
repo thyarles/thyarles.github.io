@@ -1,0 +1,167 @@
+# The terminal's documented commands: what `help`, `help <name>`, `man <name>`,
+# `<name> --help`, Tab completion and `ls /bin` know about. The commands
+# themselves are implemented in layouts/partials/typeIndex.html; an entry here
+# only describes one. (Easter eggs are not documented, on purpose.)
+#
+#   name     what is typed
+#   usage    the synopsis line, bash style
+#   short    one sentence, shown first by `help <name>`
+#   long     the rest of `help <name>` (optional). Keep lines under 58
+#            characters: the monitors on the desk are about 64 wide.
+#   listed   true = shown in the grid that plain `help` prints
+#   builtin  true = part of the shell (`type` says so), false = lives in /bin
+
+# first line of `help`
+banner: "GNU bash, version 5.2.37(1)-release (x86_64-cs-linux-gnu)"
+
+commands:
+  - name: cat
+    usage: "cat [file ...]"
+    short: Print files on the terminal.
+    long: |
+      Prints each FILE in turn.  A link prints where it points
+      to.  Pictures are not text: use `open' for those.
+    listed: true
+    builtin: false
+
+  - name: cd
+    usage: "cd [dir]"
+    short: Change the shell working directory.
+    long: |
+      Changes the current directory to DIR.  The default DIR is
+      the home directory.  `..' is the directory above, `-' is
+      the previous one and `~' is home.
+    listed: true
+    builtin: true
+
+  - name: clear
+    usage: "clear"
+    short: Clear the terminal screen.
+    listed: true
+    builtin: false
+
+  - name: date
+    usage: "date"
+    short: Print the current date and time.
+    listed: false
+    builtin: false
+
+  - name: echo
+    usage: "echo [arg ...]"
+    short: Write arguments to the standard output.
+    long: |
+      Prints the ARGs separated by a single space.  Variables
+      such as $USER, $HOME and $PWD are expanded unless they are
+      inside single quotes.
+    listed: true
+    builtin: true
+
+  - name: env
+    usage: "env"
+    short: Print the environment.
+    listed: false
+    builtin: false
+
+  - name: help
+    usage: "help [name ...]"
+    short: Display information about the commands.
+    long: |
+      Without arguments, lists the commands.  With a NAME, gives
+      detailed help on that command.
+    listed: true
+    builtin: true
+
+  - name: history
+    usage: "history [-c]"
+    short: Display the commands typed so far.
+    long: |
+      Prints the history list with line numbers.  `-c' clears
+      it.  The up and down arrows walk through the same list.
+    listed: true
+    builtin: true
+
+  - name: hostname
+    usage: "hostname"
+    short: Print the name of this machine.
+    listed: false
+    builtin: false
+
+  - name: id
+    usage: "id"
+    short: Print the user and group ids.
+    listed: false
+    builtin: false
+
+  - name: ls
+    usage: "ls [-al] [path ...]"
+    short: List directory contents.
+    long: |
+      Lists each PATH, the current directory by default.
+        -a    do not hide the entries . and ..
+        -l    use a long listing format
+        -1    list one entry per line
+        -d    list directories themselves, not their contents
+      Directories, links and programs are coloured, and a link
+      can be clicked.
+    listed: true
+    builtin: false
+
+  - name: man
+    usage: "man name"
+    short: Show the manual page of a command.
+    listed: false
+    builtin: false
+
+  - name: neofetch
+    usage: "neofetch"
+    short: Show the system card.
+    listed: true
+    builtin: false
+
+  - name: open
+    usage: "open file"
+    short: Open a link in a new tab, or a picture in the viewer.
+    long: |
+      Whatever FILE is, it opens the way a double click would.
+      `xdg-open' is the same command.
+    listed: true
+    builtin: false
+
+  - name: pwd
+    usage: "pwd"
+    short: Print the name of the current working directory.
+    listed: true
+    builtin: true
+
+  - name: tree
+    usage: "tree [dir ...]"
+    short: List the contents of directories as a tree.
+    long: |
+      Draws DIR, the current directory by default, and
+      everything below it.
+    listed: true
+    builtin: false
+
+  - name: type
+    usage: "type name [name ...]"
+    short: Say how a name would be interpreted if used as a command.
+    listed: false
+    builtin: true
+
+  - name: uname
+    usage: "uname [-a]"
+    short: Print system information.
+    listed: false
+    builtin: false
+
+  - name: which
+    usage: "which name [name ...]"
+    short: Locate a command.
+    listed: false
+    builtin: false
+
+  - name: whoami
+    usage: "whoami"
+    short: Print the current user.
+    listed: true
+    builtin: false

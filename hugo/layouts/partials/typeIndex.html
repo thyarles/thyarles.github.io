@@ -1,15 +1,22 @@
 {{/* Renders the terminal session built in layouts/index.html. Every step is
-     { ps1, cmd, out } of HTML; the typewriter reveals them in order. */}}
+     { ps1, cmd, out } of HTML; the typewriter reveals them in order, and then
+     the prompt is a small shell: a read-only file system to walk (`fs`), the
+     commands documented in data/shell.yaml (`commands`), history and Tab. */}}
 
 <style>
     /* Blinking cursor on whichever span is currently being typed. The
-       --cursor-visibility variable is flipped inline by typewriter(). */
+       --cursor-visibility and --cursor-display variables are flipped inline
+       by show(). */
     .tw:after {
         /* solid block in the prompt green, like the cursor on the README
            cards; the full-block glyph is exactly one cell wide, so it sits on
            the character grid without any manual nudging */
         content: "\2588";
         color: #23e298;
+        /* a cursor that is off takes no room either: hidden alone would
+           leave a blank cell after every prompt, and push a whole empty line
+           out after an output that fills its row */
+        display: var(--cursor-display, none);
         visibility: var(--cursor-visibility, hidden);
         overflow: hidden;
         animation: blink 500ms linear infinite alternate;
@@ -84,7 +91,7 @@ setTimeout(function () {
      table, and there is only ever one copy of the content in the page. */}}
 <div id="transcript">
 {{- range $i, $s := .steps }}
-<span class="step" data-anim="{{ if $s.anim }}1{{ else }}0{{ end }}"><span class="tw" id="ps1_{{ $i }}">{{ $s.ps1 | safeHTML }}</span> <span class="tw" id="cmd_{{ $i }}">{{ $s.cmd | safeHTML }}</span> <br>
+<span class="step" data-anim="{{ if $s.anim }}1{{ else }}0{{ end }}"{{ with $s.key }} data-key="{{ . }}"{{ end }}><span class="tw" id="ps1_{{ $i }}">{{ $s.ps1 | safeHTML }}</span> <span class="tw" id="cmd_{{ $i }}">{{ $s.cmd | safeHTML }}</span> <br>
 {{- if $s.out }}
 <span class="tw" id="out_{{ $i }}">{{ $s.out | safeHTML }}</span> <br><br>
 {{- end }}
@@ -112,6 +119,7 @@ setTimeout(function () {
             return {
                 el: el,
                 anim: el.getAttribute("data-anim") === "1",
+                key: el.getAttribute("data-key") || "",
                 ps1: ps1 ? ps1.innerHTML : "",
                 cmd: cmd ? cmd.innerHTML : "",
                 out: out ? out.innerHTML : ""
@@ -342,6 +350,7 @@ setTimeout(function () {
 
     function show(el, on) {
         el.style.setProperty("--cursor-visibility", on ? "visible" : "collapse");
+        el.style.setProperty("--cursor-display", on ? "inline" : "none");
     }
 
     /* -------------------------------------------------------- typewriter --- */
@@ -461,8 +470,9 @@ setTimeout(function () {
             enabled: g.enabled === undefined || g.enabled === ""
                 ? true
                 : (g.enabled === true || g.enabled === "true" || g.enabled === 1),
+            /* what follows "bash: <name>: " for a command that does not exist */
             denied: g.denied === undefined || g.denied === ""
-                ? "denied"
+                ? "command not found"
                 : String(g.denied),
             matrixSeconds: isFinite(Number(g.matrixseconds)) && g.matrixseconds !== undefined
                 && g.matrixseconds !== ""
@@ -488,6 +498,34 @@ setTimeout(function () {
     }
 
     function norm(s) { return s.trim().replace(/\s+/g, " "); }
+
+    /* The file system the shell walks, and the documented commands. The desk
+       scene (partials/csos.html) documents a few of its own. */
+    const FS = {{ .fs | default dict | jsonify | safeJS }};
+    const DOCS = ({{ .commands | default slice | jsonify | safeJS }})
+        .concat(window.CSOS_HELP || []);
+    const DOC = new Map(DOCS.map(function (d) { return [d.name, d]; }));
+
+    /* `help` as the page ships it, plus the desk scene's commands, in order */
+    function helpHtml(base) {
+        const extra = (window.CSOS_HELP || []).filter(function (d) { return d.listed; });
+        if (!extra.length) return base;
+        const box = document.createElement("div");
+        box.innerHTML = base;
+        const cols = box.querySelector(".cols");
+        if (!cols) return base;
+        extra.forEach(function (d) {
+            const cut = d.usage.indexOf(" ");
+            const s = document.createElement("span");
+            s.innerHTML = "<span id='dir'>" + esc(cut < 0 ? d.usage : d.usage.slice(0, cut)) +
+                          "</span>" + esc(cut < 0 ? "" : d.usage.slice(cut));
+            cols.appendChild(s);
+        });
+        Array.prototype.slice.call(cols.children)
+            .sort(function (a, b) { return a.textContent.localeCompare(b.textContent); })
+            .forEach(function (c) { cols.appendChild(c); });
+        return box.innerHTML;
+    }
 
     /* ------------------------------------------------------------- rain --- */
 
@@ -606,17 +644,281 @@ setTimeout(function () {
                      document.getElementById("content");
         if (!host) return;
 
-        /* The transcript is its own whitelist: whatever it just demonstrated is
-           what the visitor may run, mapped straight to the output it produced.
-           Deriving it here means the two can never drift apart. */
+        /* What the page already carries. PAGE is the output of every step the
+           layout gave a key to (a file's contents, a tree, `help`); KNOWN maps
+           a command exactly as the transcript shows it to its output, which is
+           how `neofetch` and any custom tree command run. Deriving both here
+           means the shell and the transcript can never drift apart. */
+        const PAGE = {};
         const KNOWN = new Map();
         STEPS.forEach(function (s) {
+            if (s.key) PAGE[s.key] = s.out || "";
             if (!s.cmd) return;
             const k = norm(textOf(s.cmd));
             if (k) KNOWN.set(k, s.out || "");
         });
 
-        const PS1 = STEPS[STEPS.length - 1].ps1;
+        /* ------------------------------------------------- file system --- */
+
+        /* Node types: d directory, f text file (its contents are html from the
+           page), l link (opens a URL), i picture (the desk scene shows it),
+           x program (an entry of /bin). Read-only, and built once. */
+        function mkdir(name) {
+            return { t: "d", name: name, kids: new Map(), parent: null };
+        }
+        function add(parent, node) {
+            node.parent = parent;
+            parent.kids.set(node.name, node);
+            return node;
+        }
+        function safeName(n) { return String(n).replace(/\//g, "-"); }
+
+        const root = mkdir("");
+        root.parent = root;                         /* `cd ..` at / stays at / */
+        const bin = add(root, mkdir("bin"));
+        const homeDir = add(add(root, mkdir("home")), mkdir(safeName(FS.user || "user")));
+        const work = FS.workdir ? add(homeDir, mkdir(safeName(FS.workdir))) : homeDir;
+
+        if (FS.profile) {
+            add(work, { t: "f", name: FS.profile, html: PAGE["file:" + FS.profile] || "" });
+        }
+        (FS.trees || []).forEach(function (tr) {
+            const d = add(work, mkdir(safeName(tr.name)));
+            d.tree = PAGE["tree:" + tr.name] || "";     /* the hand-made listing */
+            (tr.entries || []).forEach(function (e) {
+                add(d, { t: "l", name: safeName(e.name), href: e.href, desc: e.desc || "" });
+            });
+            if (tr.file) add(work, { t: "f", name: tr.file, html: d.tree });
+        });
+        /* the desk scene keeps pictures on this machine */
+        if (window.CSOS_PICS && window.CSOS_PICS.length) {
+            const pics = add(work, mkdir("pictures"));
+            window.CSOS_PICS.forEach(function (n) { add(pics, { t: "i", name: n }); });
+        }
+        DOCS.forEach(function (d) {
+            if (!d.builtin) add(bin, { t: "x", name: d.name });
+        });
+
+        function pathOf(n) {
+            const p = [];
+            while (n !== root) { p.unshift(n.name); n = n.parent; }
+            return "/" + p.join("/");
+        }
+
+        const HOME = pathOf(homeDir);
+        const ENOENT = "No such file or directory";
+        const ENOTDIR = "Not a directory";
+
+        /* the intro already typed `cd <workDir>` from home */
+        let cwd = work;
+        let oldpwd = homeDir;
+        let status = 0;                             /* $? */
+
+        function tilde(p) {
+            if (p === HOME) return "~";
+            return p.indexOf(HOME + "/") === 0 ? "~" + p.slice(HOME.length) : p;
+        }
+
+        /* a path -> its node, or the error text a real shell would print */
+        function resolve(path) {
+            let n = path.charAt(0) === "/" ? root : cwd;
+            const parts = path.split("/");
+            for (let i = 0; i < parts.length; i++) {
+                const p = parts[i];
+                if (!p || p === ".") continue;
+                if (n.t !== "d") return ENOTDIR;
+                if (p === "..") { n = n.parent; continue; }
+                if (!n.kids.has(p)) return ENOENT;
+                n = n.kids.get(p);
+            }
+            if (/\/$/.test(path) && n.t !== "d") return ENOTDIR;
+            return n;
+        }
+
+        function byName(a, b) {
+            return a.name.localeCompare(b.name, undefined, { sensitivity: "base" });
+        }
+        function sorted(d) { return Array.from(d.kids.values()).sort(byName); }
+
+        const VARS = ["USER", "HOME", "PWD", "OLDPWD", "SHELL", "HOSTNAME",
+                      "PATH", "TERM", "LANG"];
+
+        function env(name) {
+            switch (name) {
+                case "USER": case "LOGNAME": return FS.user;
+                case "HOME":     return HOME;
+                case "PWD":      return pathOf(cwd);
+                case "OLDPWD":   return pathOf(oldpwd);
+                case "SHELL":    return "/bin/bash";
+                case "HOSTNAME": return FS.host;
+                case "PATH":     return "/bin";
+                case "TERM":     return "xterm-256color";
+                case "LANG":
+                    return (window.CSOS_LANG ? window.CSOS_LANG() : "en_US") + ".UTF-8";
+                case "?":        return String(status);
+            }
+            return "";
+        }
+
+        /* ------------------------------------------------------ parser --- */
+
+        /* One line -> [{ words, op }]. `op` is what joins a command to the next
+           one (";", "&&", "||", or "" for the last). A word is a list of parts,
+           each either { s: text, q: was it quoted } or { v: variable name }.
+           Variables, ~ and globs are resolved when the command runs, not here,
+           so `cd skills && echo $PWD` sees the new directory.
+           A line that cannot be run comes back as a string: the message. */
+        function parse(line) {
+            const cmds = [];
+            const n = line.length;
+            let words = [], parts = null, i = 0;
+
+            function lit(s, q) {
+                if (!parts) parts = [];
+                const last = parts[parts.length - 1];
+                if (last && last.v === undefined && last.q === q) last.s += s;
+                else parts.push({ s: s, q: q });
+            }
+            function endWord() {
+                if (parts) { words.push(parts); parts = null; }
+            }
+            function endCmd(op) {
+                endWord();
+                if (!words.length) {
+                    return op ? "bash: syntax error near unexpected token `" + op + "'" : "";
+                }
+                cmds.push({ words: words, op: op });
+                words = [];
+                return "";
+            }
+            function variable() {                   /* line[i] is the $ */
+                const m = /^\$(\?|[A-Za-z_][A-Za-z0-9_]*|\{[A-Za-z_?][A-Za-z0-9_]*\})/
+                    .exec(line.slice(i));
+                if (!m) { lit("$", true); i++; return; }
+                if (!parts) parts = [];
+                parts.push({ v: m[1].replace(/[{}]/g, "") });
+                i += m[0].length;
+            }
+
+            while (i < n) {
+                const c = line.charAt(i);
+
+                if (c === " " || c === "\t") { endWord(); i++; continue; }
+
+                if (c === "'") {                    /* nothing is special in here */
+                    const e = line.indexOf("'", i + 1);
+                    lit(line.slice(i + 1, e < 0 ? n : e), true);
+                    i = e < 0 ? n : e + 1;
+                    continue;
+                }
+
+                if (c === '"') {
+                    i++;
+                    lit("", true);                  /* "" is still a word */
+                    while (i < n && line.charAt(i) !== '"') {
+                        const d = line.charAt(i);
+                        if (d === "\\" && i + 1 < n &&
+                            '"\\$`'.indexOf(line.charAt(i + 1)) >= 0) {
+                            lit(line.charAt(i + 1), true);
+                            i += 2;
+                        } else if (d === "$") {
+                            variable();
+                        } else {
+                            lit(d, true);
+                            i++;
+                        }
+                    }
+                    i++;
+                    continue;
+                }
+
+                if (c === "\\") {
+                    lit(i + 1 < n ? line.charAt(i + 1) : "", true);
+                    i += 2;
+                    continue;
+                }
+
+                if (c === "$") { variable(); continue; }
+
+                if (c === "#" && !parts) break;     /* the rest is a comment */
+
+                if (c === ";") {
+                    const e = endCmd(";");
+                    if (e) return e;
+                    i++;
+                    continue;
+                }
+
+                if (c === "&" || c === "|") {
+                    if (line.charAt(i + 1) === c) {
+                        const e = endCmd(c + c);
+                        if (e) return e;
+                        i += 2;
+                        continue;
+                    }
+                    return c === "|"
+                        ? "bash: |: pipes are not supported here"
+                        : "bash: &: no job control in this shell";
+                }
+
+                if (c === ">") return "bash: cannot redirect: Read-only file system";
+                if (c === "<") return "bash: <: redirections are not supported here";
+
+                lit(c, false);
+                i++;
+            }
+
+            const e = endCmd("");
+            if (e) return e;
+            if (cmds.length && /^(&&|\|\|)$/.test(cmds[cmds.length - 1].op)) {
+                return "bash: syntax error: unexpected end of file";
+            }
+            return cmds;
+        }
+
+        /* `*` and `?` in the last component of a path, matched against the
+           directory it names. No match leaves the word as typed, like bash. */
+        function globbed(s, rx) {
+            const cut = s.lastIndexOf("/");
+            const head = s.slice(0, cut + 1);
+            const d = head ? resolve(head) : cwd;
+            if (typeof d === "string" || d.t !== "d") return [];
+            let re;
+            try { re = new RegExp("^" + rx + "$"); } catch (e) { return []; }
+            const dot = s.charAt(cut + 1) === ".";
+            return sorted(d)
+                .filter(function (k) { return dot || k.name.charAt(0) !== "."; })
+                .map(function (k) { return head + k.name; })
+                .filter(function (p) { return re.test(p); });
+        }
+
+        function expand(words) {
+            const argv = [];
+            words.forEach(function (parts) {
+                let s = "", rx = "", glob = false;
+                parts.forEach(function (p, k) {
+                    let t = p.v !== undefined ? env(p.v) : p.s;
+                    const bare = p.v === undefined && !p.q;
+                    if (bare && k === 0 && (t === "~" || t.indexOf("~/") === 0)) {
+                        t = HOME + t.slice(1);
+                    }
+                    s += t;
+                    if (bare) {
+                        if (/[*?]/.test(t)) glob = true;
+                        rx += t.replace(/[.+^${}()|[\]\\]/g, "\\$&")
+                               .replace(/\*/g, "[^/]*").replace(/\?/g, "[^/]");
+                    } else {
+                        rx += t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+                    }
+                });
+                const hits = glob ? globbed(s, rx) : [];
+                if (hits.length) Array.prototype.push.apply(argv, hits);
+                else argv.push(s);
+            });
+            return argv;
+        }
+
+        /* ------------------------------------------------------ output --- */
 
         const stdin = document.createElement("input");
         stdin.id = "stdin";
@@ -631,9 +933,13 @@ setTimeout(function () {
         let live = document.getElementById("cmd_" + (STEPS.length - 1));
         /* ...and the template already emitted the <br> that closes it */
         let needBr = false;
-        /* true while a command that takes its time (ping, ssh) still owns the line */
+        /* true while a line is running; a slow command (ping, ssh) owns it */
         let busy = false;
-        const history = [];
+        /* did the line being run print anything? decides the blank line after it */
+        let printed = false;
+        /* was the last key a Tab that could not decide? the next one lists */
+        let tabbed = false;
+        const hist = [];
         let hpos = 0;
 
         function put(html, cls) {
@@ -646,13 +952,44 @@ setTimeout(function () {
 
         function br() { host.appendChild(document.createElement("br")); }
 
+        /* a block of ready-made html, then the line break that ends it */
+        function emit(html) {
+            const s = put(html);
+            br();
+            printed = true;
+            stick();
+            return s;
+        }
+
+        /* plain output; the caller escapes whatever came from the visitor */
+        function say(html) {
+            return emit("<span id='terminal' style='white-space: pre-wrap'>" + html + "</span>");
+        }
+
+        function fail(msg, code) {
+            say(esc(msg));
+            return code || 1;
+        }
+
+        function link(href, text) {
+            return "<a href='" + esc(href) + "' target='_blank' rel='noopener'>" +
+                   esc(text) + "</a>";
+        }
+
+        function ps1() {
+            return "<strong><span id='user'>" + esc(FS.user + "@" + FS.host) +
+                   "</span><span id='terminal'> </span><span id='dir'>" +
+                   esc(tilde(pathOf(cwd))) +
+                   "</span></strong><span id='terminal'> $</span>";
+        }
+
         function draw() {
             live.innerHTML = "<span id='terminal'>" + esc(stdin.value) + "</span>";
             stick();
         }
 
         function prompt() {
-            put(PS1);
+            put(ps1());
             host.appendChild(document.createTextNode(" "));
             live = put("", "tw");
             show(live, true);
@@ -660,111 +997,555 @@ setTimeout(function () {
             draw();
         }
 
-        /* Not on any list, by design. Returns the line to print before the
-           rain — "" means go straight in — or null for "not an egg at all". */
-        function eggFor(cmd) {
-            if (cmd === "matrix") return "";
-            if (cmd === "xyzzy") return "Nothing happens.";
-            if (/^sudo(\s|$)/.test(cmd)) {
-                return SHELL.userName +
-                       " is not in the sudoers file. This incident will be reported.";
+        /* the line being typed stops being the live one */
+        function freeze(text) {
+            live.innerHTML = "<span id='terminal'>" + esc(text) + "</span>";
+            show(live, false);
+            if (needBr) br();
+        }
+
+        /* ----------------------------------------------------- listing --- */
+
+        const SPECIAL = /[\s'"\\$&;|<>()*?!#`\[\]{}]/;
+
+        /* a name as `ls` shows it: coloured by type, quoted when it would need
+           quoting to be typed back, and a link really is one */
+        function shown(label, node, bare) {
+            let text = label;
+            if (!bare && SPECIAL.test(label)) {
+                text = label.indexOf("'") < 0 ? "'" + label + "'" : '"' + label + '"';
             }
-            return null;
+            const t = esc(text);
+            if (node.t === "d") return "<span id='dir'>" + t + "</span>";
+            if (node.t === "l") return link(node.href, text);
+            if (node.t === "x") return "<span id='user'>" + t + "</span>";
+            return t;
+        }
+
+        /* this file system has no real sizes for pictures and programs, so
+           they get a stable made-up one */
+        function fake(name, lo, hi) {
+            let h = 7;
+            for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0;
+            return lo + h % (hi - lo);
+        }
+
+        function sizeOf(n) {
+            if (n.t === "d") return 4096;
+            if (n.t === "f") return textOf(n.html).length;
+            if (n.t === "l") return n.href.length;
+            if (n.t === "i") return fake(n.name, 60000, 480000);
+            return fake(n.name, 18000, 160000);
+        }
+
+        const MODES = { d: "drwxr-xr-x", f: "-rw-r--r--", l: "lrwxrwxrwx",
+                        i: "-rw-r--r--", x: "-rwxr-xr-x" };
+
+        /* rows: [{ label, node }] -> the text of one listing */
+        function listing(rows, long, one, total) {
+            if (!long) {
+                return rows.map(function (r) { return shown(r.label, r.node); })
+                           .join(one ? "\n" : "  ");
+            }
+            const cells = rows.map(function (r) {
+                const n = r.node;
+                const mine = (pathOf(n) + "/").indexOf(HOME + "/") === 0;
+                let links = 1;
+                if (n.t === "d") {
+                    links = 2;
+                    n.kids.forEach(function (k) { if (k.t === "d") links++; });
+                }
+                return [MODES[n.t], String(links), mine ? FS.user : "root",
+                        mine ? FS.user : "root", String(sizeOf(n)), FS.built,
+                        shown(r.label, n) + (n.t === "l" ? " -&gt; " + esc(n.href) : "")];
+            });
+            const w = [0, 0, 0, 0, 0];
+            cells.forEach(function (c) {
+                for (let k = 1; k <= 4; k++) w[k] = Math.max(w[k], c[k].length);
+            });
+            const lines = cells.map(function (c) {
+                return c[0] + " " + c[1].padStart(w[1]) + " " + c[2].padEnd(w[2]) + " " +
+                       c[3].padEnd(w[3]) + " " + c[4].padStart(w[4]) + " " + c[5] + " " + c[6];
+            });
+            if (total) lines.unshift("total " + rows.length * 4);
+            return lines.join("\n");
+        }
+
+        /* ------------------------------------------------------- help --- */
+
+        function helpFor(name) {
+            const d = DOC.get(name);
+            if (!d) return false;
+            let t = d.name + ": " + d.usage + "\n    " + d.short;
+            if (d.long) {
+                t += "\n\n" + String(d.long).replace(/\s+$/, "").split("\n")
+                    .map(function (l) { return "    " + l; }).join("\n");
+            }
+            say(esc(t));
+            return true;
         }
 
         /* someone who asked for less motion gets told what they missed */
-        function rain(done) {
-            if (reduced) {
-                put("<span id='terminal'>somewhere, quietly, it is raining.</span>");
-                br(); br();
-                done();
-                return;
-            }
-            matrixRain(function () { focus(); done(); });
+        function rain() {
+            return new Promise(function (done) {
+                if (reduced) {
+                    say("somewhere, quietly, it is raining.");
+                    done();
+                    return;
+                }
+                matrixRain(function () { focus(); done(); });
+            });
         }
 
-        function run() {
-            const raw = stdin.value;
-            const cmd = norm(raw);
-            stdin.value = "";
+        /* ---------------------------------------------------- commands --- */
 
-            live.innerHTML = "<span id='terminal'>" + esc(raw) + "</span>";
-            show(live, false);
-            if (needBr) br();
+        /* Each takes (args, name) and returns its exit status, or a promise of
+           it. No prototype, so `constructor` is not a command. */
+        const BIN = Object.create(null);
 
-            if (cmd) {
-                history.push(raw);
+        BIN.cd = function (a) {
+            a = a.filter(function (x) { return x !== "--"; });
+            if (a.length > 1) return fail("bash: cd: too many arguments");
+            let target = a.length ? a[0] : HOME, echo = false;
+            if (target === "-") { target = pathOf(oldpwd); echo = true; }
+            const n = resolve(target);
+            if (typeof n === "string") return fail("bash: cd: " + target + ": " + n);
+            if (n.t !== "d") return fail("bash: cd: " + target + ": " + ENOTDIR);
+            oldpwd = cwd;
+            cwd = n;
+            if (echo) say(esc(pathOf(cwd)));
+            return 0;
+        };
 
-                /* `!== null`, not truthiness: `matrix` has nothing to say and
-                   an empty string would fall through to `matrix: denied` */
-                const egg = eggFor(cmd);
-                if (egg !== null) {
-                    if (egg) {
-                        put("<span id='terminal'>" + esc(egg) + "</span>");
-                        br(); br();
+        BIN.pwd = function () { say(esc(pathOf(cwd))); return 0; };
+
+        BIN.ls = function (a) {
+            let all = false, long = false, one = false, self = false;
+            const paths = [];
+            for (let i = 0; i < a.length; i++) {
+                const x = a[i];
+                if (x.length < 2 || x.charAt(0) !== "-") { paths.push(x); continue; }
+                if (x === "--") continue;
+                if (x === "--all") { all = true; continue; }
+                if (x.charAt(1) === "-") {
+                    return fail("ls: unrecognized option '" + x + "'\n" +
+                                "Try 'ls --help' for more information.", 2);
+                }
+                for (let k = 1; k < x.length; k++) {
+                    const f = x.charAt(k);
+                    if (f === "a") all = true;
+                    else if (f === "l" || f === "g" || f === "o") long = true;
+                    else if (f === "1") one = true;
+                    else if (f === "d") self = true;
+                    /* harmless here: sorting, sizes, decoration */
+                    else if ("AhFtrSGpUXcuv".indexOf(f) < 0) {
+                        return fail("ls: invalid option -- '" + f + "'\n" +
+                                    "Try 'ls --help' for more information.", 2);
                     }
-                    stick();
-                    hpos = history.length;
-                    rain(prompt);      /* the prompt comes back when it stops */
-                    return;
                 }
+            }
+            if (!paths.length) paths.push(".");
 
-                let out = "", hasOut = false;
-
-                /* The desk scene (partials/csos.html) adds commands of its own.
-                   undefined = not mine; a string = the output; a promise = the
-                   prompt comes back when it settles. */
-                const api = {
-                    put: function (h) { const s = put(h); br(); stick(); return s; },
-                    raw: put, br: br, stick: stick, esc: esc,
-                    clear: function () { host.innerHTML = ""; }
-                };
-                const ext = window.CSOS_CMD ? window.CSOS_CMD(cmd, raw, api) : undefined;
-                if (ext && typeof ext.then === "function") {
-                    busy = true;
-                    hpos = history.length;
-                    stick();
-                    ext.then(function (h) {
-                        busy = false;
-                        if (h) { put(h); br(); }
-                        br();
-                        prompt();
-                    });
-                    return;
-                }
-
-                if (typeof ext === "string") {
-                    out = ext;
-                    hasOut = !!ext;
-                } else if (/^ls(\s|$)/.test(cmd) && KNOWN.has("ls")) {
-                    /* `ls`, `ls -lah`, `ls -la /` — the listing never changes */
-                    out = KNOWN.get("ls");
-                    hasOut = !!out;
-                } else if (KNOWN.has(cmd)) {
-                    out = KNOWN.get(cmd);
-                    hasOut = !!out;                 /* `cd me` prints nothing */
-                } else if (/^echo(\s|$)/.test(cmd)) {
-                    out = "<span id='terminal'>" +
-                          esc(raw.replace(/^\s*echo\s?/, "")) + "</span>";
-                    hasOut = true;                  /* a bare `echo` prints a blank line */
+            let code = 0;
+            const files = [], dirs = [];
+            paths.forEach(function (p) {
+                const n = resolve(p);
+                if (typeof n === "string") {
+                    say(esc("ls: cannot access '" + p + "': " + n));
+                    code = 2;
+                } else if (n.t === "d" && !self) {
+                    dirs.push({ label: p, node: n });
                 } else {
-                    /* just the refusal: `help` is what points anywhere */
-                    out = "<span id='terminal'>" + esc(cmd.split(" ")[0]) + ": " +
-                          esc(SHELL.denied) + "</span>";
-                    hasOut = true;
+                    files.push({ label: p, node: n });
                 }
+            });
 
-                if (window.CSOS_EXTRA && typeof ext !== "string") {
-                    const more = window.CSOS_EXTRA(cmd);
-                    if (more) { out += more; hasOut = true; }
+            const blocks = [];
+            if (files.length) blocks.push(listing(files, long, one, false));
+            dirs.forEach(function (d) {
+                const rows = sorted(d.node).map(function (n) {
+                    return { label: n.name, node: n };
+                });
+                if (all) {
+                    rows.unshift({ label: ".", node: d.node },
+                                 { label: "..", node: d.node.parent });
                 }
+                const body = listing(rows, long, one, true);
+                const head = paths.length > 1 ? esc(d.label) + ":" : "";
+                if (head || body) blocks.push(head + (head && body ? "\n" : "") + body);
+            });
+            if (blocks.length) {
+                emit("<span class='ls' id='terminal'>" + blocks.join("\n\n") + "</span>");
+            }
+            return code;
+        };
 
-                if (hasOut) { put(out); br(); br(); }
+        BIN.cat = function (a) {
+            if (!a.length) {
+                return fail("cat: missing file operand\nTry 'cat --help' for more information.");
+            }
+            let code = 0;
+            a.forEach(function (p) {
+                const n = resolve(p);
+                if (typeof n === "string") { code = fail("cat: " + p + ": " + n); }
+                else if (n.t === "d") { code = fail("cat: " + p + ": Is a directory"); }
+                else if (n.t === "f") { if (n.html) emit(n.html); }
+                else if (n.t === "l") {
+                    say((n.desc ? esc(n.desc) + "\n" : "") + link(n.href, n.href));
+                }
+                else if (n.t === "i") {
+                    code = fail("cat: " + p + ": a picture is not text. Try `open " + p + "'.");
+                }
+                else { code = fail("cat: " + p + ": binary file"); }
+            });
+            return code;
+        };
+
+        BIN.tree = function (a) {
+            const paths = a.filter(function (x) { return x.charAt(0) !== "-"; });
+            if (!paths.length) paths.push(".");
+            let code = 0, drawn = 0;
+            paths.forEach(function (p) {
+                const n = resolve(p);
+                if (typeof n === "string" || n.t !== "d") {
+                    say(esc(p + "  [error opening dir]"));
+                    code = 2;
+                    return;
+                }
+                drawn++;
+                /* a tree from the config has a hand-made listing, descriptions and all */
+                if (n.tree) { emit(n.tree); return; }
+
+                let dirs = 0, files = 0;
+                const lines = [shown(p, n, true)];
+                (function walk(d, prefix) {
+                    const kids = sorted(d);
+                    kids.forEach(function (k, i) {
+                        const last = i === kids.length - 1;
+                        lines.push(prefix + (last ? "└── " : "├── ") + shown(k.name, k, true));
+                        if (k.t === "d") { dirs++; walk(k, prefix + (last ? "    " : "│   ")); }
+                        else files++;
+                    });
+                })(n, "");
+                say(lines.join("\n") + "\n\n" +
+                    dirs + (dirs === 1 ? " directory, " : " directories, ") +
+                    files + (files === 1 ? " file" : " files"));
+            });
+            if (!drawn) say("\n0 directories, 0 files");
+            return code;
+        };
+
+        BIN.help = function (a) {
+            if (!a.length) {
+                if (PAGE.help) emit(helpHtml(PAGE.help));
+                else say(esc(DOCS.map(function (d) { return " " + d.usage; }).join("\n")));
+                return 0;
+            }
+            let code = 0;
+            a.forEach(function (n) {
+                if (!helpFor(n)) {
+                    code = fail("bash: help: no help topics match `" + n + "'.  Try `help help' " +
+                                "or `man -k " + n + "' or `info " + n + "'.");
+                }
+            });
+            return code;
+        };
+
+        BIN.man = function (a) {
+            if (!a.length) return fail("What manual page do you want?\nFor example, try 'man man'.");
+            let code = 0;
+            a.forEach(function (n) {
+                if (!helpFor(n)) code = fail("No manual entry for " + n, 16);
+            });
+            return code;
+        };
+
+        BIN.history = function (a) {
+            if (a[0] === "-c") { hist.length = 0; return 0; }
+            say(esc(hist.map(function (h, i) {
+                return String(i + 1).padStart(5) + "  " + h;
+            }).join("\n")));
+            return 0;
+        };
+
+        BIN.clear = function () {
+            host.innerHTML = "";
+            printed = false;
+            return 0;
+        };
+
+        BIN.echo = function (a) {
+            while (a.length && /^-[neE]+$/.test(a[0])) a = a.slice(1);
+            say(esc(a.join(" ")));
+            return 0;
+        };
+
+        BIN.open = BIN["xdg-open"] = function (a, name) {
+            if (!a.length) return fail("usage: " + name + " file");
+            let code = 0;
+            a.forEach(function (p) {
+                const n = resolve(p);
+                if (typeof n === "string") {
+                    /* a picture can still be asked for by its bare name */
+                    if (!(window.CSOS_VIEW && window.CSOS_VIEW(p))) {
+                        code = fail(name + ": " + p + ": " + n);
+                    }
+                } else if (n.t === "l") {
+                    /* the link is printed too, in case the new tab is blocked */
+                    say("Opening " + link(n.href, n.href));
+                    try { window.open(n.href, "_blank", "noopener"); } catch (e) {}
+                } else if (n.t === "i") {
+                    if (!(window.CSOS_VIEW && window.CSOS_VIEW(n.name))) {
+                        code = fail(name + ": " + p + ": no picture viewer on this terminal");
+                    }
+                } else if (n.t === "f") {
+                    if (n.html) emit(n.html);
+                } else if (n.t === "d") {
+                    code = fail(name + ": " + p + ": Is a directory");
+                } else {
+                    code = fail(name + ": " + p + ": that is a program, run it instead");
+                }
+            });
+            return code;
+        };
+
+        BIN.whoami = function () { say(esc(FS.user)); return 0; };
+        BIN.hostname = function () { say(esc(FS.host)); return 0; };
+
+        BIN.id = function () {
+            const u = "1000(" + FS.user + ")";
+            say(esc("uid=" + u + " gid=" + u + " groups=" + u));
+            return 0;
+        };
+
+        BIN.date = function () {
+            /* "Fri Nov 13 2026 10:02:11 GMT-0300 (...)" -> the order `date` uses */
+            const d = new Date(), s = d.toString().split(" ");
+            say(esc(s[0] + " " + s[1] + " " + String(d.getDate()).padStart(2) + " " +
+                    s[4] + " " + (s[5] || "").replace("GMT", "") + " " + s[3]));
+            return 0;
+        };
+
+        BIN.uname = function (a) {
+            const f = a.join("");
+            if (f.indexOf("a") >= 0) {
+                say(esc("Linux " + FS.host + " 6.12.0-cs #1 SMP PREEMPT_DYNAMIC x86_64 GNU/Linux"));
+            } else if (f.indexOf("r") >= 0) say("6.12.0-cs");
+            else if (f.indexOf("n") >= 0) say(esc(FS.host));
+            else if (f.indexOf("m") >= 0) say("x86_64");
+            else say("Linux");
+            return 0;
+        };
+
+        BIN.env = BIN.printenv = function (a) {
+            if (a.length) { const v = env(a[0]); if (v) say(esc(v)); return v ? 0 : 1; }
+            say(esc(VARS.map(function (v) { return v + "=" + env(v); }).join("\n")));
+            return 0;
+        };
+
+        BIN.which = function (a) {
+            let code = a.length ? 0 : 1;
+            a.forEach(function (n) {
+                if (bin.kids.has(n)) say(esc("/bin/" + n)); else code = 1;
+            });
+            return code;
+        };
+
+        BIN.type = function (a) {
+            let code = 0;
+            a.forEach(function (n) {
+                const d = DOC.get(n);
+                if (d && d.builtin) say(esc(n + " is a shell builtin"));
+                else if (bin.kids.has(n)) say(esc(n + " is /bin/" + n));
+                else code = fail("bash: type: " + n + ": not found");
+            });
+            return code;
+        };
+
+        BIN["true"] = function () { return 0; };
+        BIN["false"] = function () { return 1; };
+
+        /* off the desk there is no computer to turn off: a fresh session it is */
+        BIN.exit = BIN.logout = function () {
+            host.innerHTML = "";
+            printed = false;
+            cwd = work;
+            oldpwd = homeDir;
+            return 0;
+        };
+
+        /* everything that would change the disk gets the answer a read-only
+           mount gives */
+        const CANNOT = { touch: "touch", mkdir: "create directory", rm: "remove",
+                         rmdir: "remove", mv: "move", cp: "copy", ln: "create link",
+                         chmod: "change permissions of", chown: "change ownership of" };
+        Object.keys(CANNOT).forEach(function (name) {
+            BIN[name] = function (a) {
+                const ops = a.filter(function (x) { return x.charAt(0) !== "-"; });
+                if (!ops.length) return fail(name + ": missing operand");
+                return fail(name + ": cannot " + CANNOT[name] + " '" + ops[0] +
+                            "': Read-only file system");
+            };
+        });
+
+        /* ------------------------------------------------------ running --- */
+
+        /* what the desk scene (partials/csos.html) gets to print with */
+        const api = {
+            put: function (h) { return emit(h); },
+            raw: function (h) { printed = true; return put(h); },
+            br: br, stick: stick, esc: esc
+        };
+
+        async function exec(argv) {
+            const name = argv[0], args = argv.slice(1);
+
+            /* Not on any list, by design. */
+            if (name === "matrix" || name === "xyzzy" || name === "sudo") {
+                if (name === "xyzzy") say("Nothing happens.");
+                if (name === "sudo") {
+                    say(esc(SHELL.userName +
+                            " is not in the sudoers file. This incident will be reported."));
+                }
+                await rain();
+                return name === "sudo" ? 1 : 0;
             }
 
-            hpos = history.length;
+            /* before anything runs: `exit --help` must not turn the computer off */
+            if (args.indexOf("--help") >= 0 && DOC.has(name)) { helpFor(name); return 0; }
+
+            /* The desk scene has commands of its own. undefined = not mine;
+               a string = the output; a promise = the output, later. */
+            let ext = window.CSOS_CMD ? window.CSOS_CMD(argv, api) : undefined;
+            if (ext !== undefined) {
+                if (ext && typeof ext.then === "function") ext = await ext;
+                if (ext) emit(ext);
+                return 0;
+            }
+
+            if (BIN[name]) return (await BIN[name](args, name)) || 0;
+
+            /* a path in place of a name: /bin/ls runs, a text file does not */
+            if (name.indexOf("/") >= 0) {
+                const n = resolve(name);
+                if (typeof n === "string") return fail("bash: " + name + ": " + n, 127);
+                if (n.t === "d") return fail("bash: " + name + ": Is a directory", 126);
+                if (n.t === "x") return exec([n.name].concat(args));
+                return fail("bash: " + name + ": Permission denied", 126);
+            }
+
+            /* whatever else the transcript demonstrates, exactly as typed there */
+            const typed = argv.join(" ");
+            if (KNOWN.has(typed)) {
+                if (KNOWN.get(typed)) emit(KNOWN.get(typed));
+                return 0;
+            }
+
+            return fail("bash: " + name + ": " + SHELL.denied, 127);
+        }
+
+        async function execLine(line) {
+            const cmds = parse(line);
+            if (typeof cmds === "string") { status = fail(cmds, 2); return; }
+            for (let i = 0; i < cmds.length; i++) {
+                const argv = expand(cmds[i].words);
+                status = argv.length ? await exec(argv) : 0;
+                /* skip whatever a failed && or a successful || rules out */
+                let op = cmds[i].op;
+                while (i < cmds.length - 1 &&
+                       ((op === "&&" && status !== 0) || (op === "||" && status === 0))) {
+                    i++;
+                    op = cmds[i].op;
+                }
+            }
+        }
+
+        async function run() {
+            const raw = stdin.value;
+            stdin.value = "";
+            freeze(raw);
+
+            if (raw.trim()) {
+                hist.push(raw);
+                busy = true;
+                printed = false;
+                try {
+                    await execLine(raw.trim());
+                } catch (e) {
+                    status = fail("bash: " + (e && e.message ? e.message : e));
+                }
+                busy = false;
+                if (printed) br();          /* the blank line under any output */
+            }
+
+            hpos = hist.length;
             prompt();
         }
+
+        /* ---------------------------------------------------------- Tab --- */
+
+        /* Completes the word under the cursor: a command name in command
+           position, a path anywhere else. One match is filled in, several are
+           filled in as far as they agree, and a second Tab lists them. */
+        function complete() {
+            const v = stdin.value;
+            let i = v.length;
+            while (i > 0 && !(v.charAt(i - 1) === " " && v.charAt(i - 2) !== "\\")) i--;
+            const before = v.slice(0, i), frag = v.slice(i);
+            if (/["']/.test(frag)) return;          /* quoted words are left alone */
+
+            const seg = before.split(/;|&&|\|\|/).pop();
+            const cands = [];                       /* [replacement, label] */
+
+            if (!seg.trim() && frag.indexOf("/") < 0) {
+                DOCS.map(function (d) { return d.name; }).sort().forEach(function (n) {
+                    if (n.indexOf(frag) === 0) cands.push([n + " ", esc(n)]);
+                });
+            } else {
+                const cut = frag.lastIndexOf("/");
+                const headRaw = frag.slice(0, cut + 1);
+                const un = function (s) { return s.replace(/\\(.)/g, "$1"); };
+                let head = un(headRaw);
+                if (head.indexOf("~/") === 0) head = HOME + head.slice(1);
+                const tail = un(frag.slice(cut + 1));
+                const d = head ? resolve(head) : cwd;
+                if (typeof d === "string" || d.t !== "d") return;
+                const dirsOnly = /^\s*cd\s/.test(seg);
+                sorted(d).forEach(function (k) {
+                    if (k.name.indexOf(tail) !== 0) return;
+                    if (dirsOnly && k.t !== "d") return;
+                    const end = k.t === "d" ? "/" : " ";
+                    cands.push([
+                        headRaw + k.name.replace(new RegExp(SPECIAL.source, "g"), "\\$&") + end,
+                        shown(k.name + (k.t === "d" ? "/" : ""), k, true)
+                    ]);
+                });
+            }
+
+            if (!cands.length) return;
+            if (cands.length === 1) { stdin.value = before + cands[0][0]; draw(); return; }
+
+            let lcp = cands[0][0];
+            cands.forEach(function (c) {
+                let k = 0;
+                while (k < lcp.length && k < c[0].length && lcp.charAt(k) === c[0].charAt(k)) k++;
+                lcp = lcp.slice(0, k);
+            });
+            /* never stop on half of an escape */
+            if (/(^|[^\\])(\\\\)*\\$/.test(lcp)) lcp = lcp.slice(0, -1);
+
+            if (lcp.length > frag.length) { stdin.value = before + lcp; draw(); return; }
+            if (!tabbed) { tabbed = true; return; }
+
+            tabbed = false;
+            freeze(v);
+            put("<span class='ls' id='terminal'>" +
+                cands.map(function (c) { return c[1]; }).join("  ") + "</span>");
+            br();
+            prompt();                               /* same line, typed so far */
+        }
+
+        /* ---------------------------------------------------- keyboard --- */
 
         function focus() {
             try { stdin.focus({ preventScroll: true }); } catch (e) { stdin.focus(); }
@@ -778,16 +1559,39 @@ setTimeout(function () {
 
         stdin.addEventListener("keydown", function (e) {
             if (rainActive || busy || window.CSOS_OFF) { e.preventDefault(); return; }
+
+            const plain = !e.ctrlKey && !e.altKey && !e.metaKey;
+
+            if (e.key === "Tab" && plain && !e.shiftKey) {
+                e.preventDefault();                 /* or the focus walks away */
+                complete();
+                return;
+            }
+            tabbed = false;
+
             if (e.key === "Enter") { e.preventDefault(); run(); return; }
+
+            /* Ctrl+C drops the line, unless it is copying a selection */
+            if (e.ctrlKey && !e.altKey && !e.metaKey && (e.key === "c" || e.key === "C")) {
+                const sel = window.getSelection && window.getSelection().toString();
+                if (sel) return;
+                e.preventDefault();
+                freeze(stdin.value + "^C");
+                stdin.value = "";
+                hpos = hist.length;
+                prompt();
+                return;
+            }
+
             if (e.key === "ArrowUp") {
                 e.preventDefault();
-                if (hpos > 0) { hpos--; stdin.value = history[hpos]; draw(); }
+                if (hpos > 0) { hpos--; stdin.value = hist[hpos]; draw(); }
                 return;
             }
             if (e.key === "ArrowDown") {
                 e.preventDefault();
-                if (hpos < history.length - 1) { hpos++; stdin.value = history[hpos]; }
-                else { hpos = history.length; stdin.value = ""; }
+                if (hpos < hist.length - 1) { hpos++; stdin.value = hist[hpos]; }
+                else { hpos = hist.length; stdin.value = ""; }
                 draw();
             }
         });
@@ -820,6 +1624,9 @@ setTimeout(function () {
         /* on the desk scene the session starts after the login, not on load */
         if (window.CSOS_GATE) await window.CSOS_GATE;
         armSkip();
+
+        /* the `help` the intro types is the one the prompt will print */
+        STEPS.forEach(function (s) { if (s.key === "help") s.out = helpHtml(s.out); });
 
         await sleep(CFG.startPause);
 

@@ -1,37 +1,16 @@
 {{ define "main" }}
     {{/* ------------------------------------------------------------------
          Builds the whole terminal session as a list of steps:
-             { ps1, cmd, out, plain }
-         `plain` is the tag-free twin of the step, used for the hidden
-         crawler/no-JS transcript so it can never drift from what is typed.
+             { ps1, cmd, out, key, plain }
+         `key` names an output the shell reuses once the prompt is live (a
+         file's contents, a tree, `help`); `plain` is the tag-free twin of
+         the step.
          ------------------------------------------------------------------ */}}
 
     {{ $t := .Site.Params.Terminal }}
 
-    {{ $ps1 := printf "<strong><span id='user'>%s@%s</span><span id='terminal'> </span><span id='dir'>~/</span></strong><span id='terminal'> $</span>" $t.userName $t.pcName }}
+    {{ $ps1 := printf "<strong><span id='user'>%s@%s</span><span id='terminal'> </span><span id='dir'>~</span></strong><span id='terminal'> $</span>" $t.userName $t.pcName }}
     {{ $ps1Dir := printf "<strong><span id='user'>%s@%s</span><span id='terminal'> </span><span id='dir'>~/%s</span></strong><span id='terminal'> $</span>" $t.userName $t.pcName $t.workDir }}
-
-    {{/* ------------------------------------------------------------------
-         What `help` prints. Built before the steps because `help` is typed
-         during the intro but has to know about the trees, which are appended
-         after it. Everything the session can do is runnable; this list is only
-         the part worth pointing at, so `cd me`, `echo`, `ls`, `help` itself
-         and the easter eggs are all deliberately absent.
-         ------------------------------------------------------------------ */}}
-    {{ $neofetchCmd := "" }}
-    {{ with .Site.Params.Neofetch }}{{ if .use }}{{ $neofetchCmd = default "neofetch" .command }}{{ end }}{{ end }}
-
-    {{ $menu := slice }}
-    {{ $menu = $menu | append (dict "cmd" (printf "cat %s" $t.profile) "desc" "who I am") }}
-    {{ with $neofetchCmd }}{{ $menu = $menu | append (dict "cmd" . "desc" "the system card") }}{{ end }}
-    {{ range .Site.Params.Trees }}
-        {{ $menu = $menu | append (dict
-            "cmd"  (default (printf "tree %s" .folderName) .command)
-            "desc" (default (printf "%d entries" (len .files)) .desc)) }}
-    {{ end }}
-    {{/* `ls` and `help` are runnable but stay off this list: it is meant to
-         point at the content, not to document itself. */}}
-    {{ $menu = sort $menu "cmd" }}
 
     {{ $steps := slice }}
 
@@ -85,6 +64,7 @@
             "ps1" $ps1
             "cmd" (printf "<span id='terminal'>%s</span>" (default "neofetch" .command))
             "out" (printf "<span id='terminal' style='white-space: pre'>%s</span>" (trim $out "\n"))
+            "key" "neofetch"
             "plain" $outPlain) }}
     {{ end }}
     {{ end }}
@@ -97,8 +77,9 @@
         "out" "") }}
 
     {{/* --- cat <profile> -------------------------------------------------
-         Runnable and listed by `help`, but not part of the intro: the tree
-         with `demo: true` is what the opening shows instead. */}}
+         Not part of the intro: the tree with `demo: true` is what the opening
+         shows instead. The shell serves it as the file's contents, which is
+         what the "key" is for: it names the outputs the shell reuses. */}}
     {{ $descBody := "" }}
     {{ if eq (substr $t.description -3 3) ".md" }}
         {{ with .Site.GetPage $t.description }}
@@ -111,6 +92,7 @@
         "anim" false
         "ps1" $ps1Dir
         "cmd" (printf "<span id='terminal'>cat %s</span>" $t.profile)
+        "key" (printf "file:%s" $t.profile)
         "out" (printf "<span id='terminal'>%s</span>" $descBody)) }}
 
 
@@ -167,6 +149,7 @@
             "ps1" $ps1Dir
             "cmd" (printf "<span id='terminal'>%s</span>" (default (printf "tree %s" $tree.folderName) $tree.command))
             "out" $out
+            "key" (printf "tree:%s" $tree.folderName)
             "plain" $outPlain) }}
     {{ end }}
 
@@ -201,37 +184,62 @@
         "plain" (printf "%s\n" (trim $lsPlain " "))) }}
 
     {{/* --- help (still the last command the intro types) ---------------- */}}
-    {{/* same dot-leader maths as a tree block, so the two line up visually */}}
-    {{ $mw := 0 }}
-    {{ range $menu }}{{ if gt (len .cmd) $mw }}{{ $mw = len .cmd }}{{ end }}{{ end }}
-    {{ $mw = add $mw 6 }}
-    {{ $mhang := add $mw 4 }}{{ if gt $mhang 24 }}{{ $mhang = 24 }}{{ end }}
-
-    {{/* the heading stays in the normal terminal colour — the orange is for
-         paths and command names, and a heading in it read as a directory */}}
-    {{ $helpOut := printf "<span class='tree' style='--hang: %dch'><strong><span id='terminal'>available commands</span></strong>" $mhang }}
-    {{ $helpPlain := "available commands\n" }}
-    {{ range $menu }}
-        {{ $dots := sub $mw (len .cmd) }}
-        {{ if lt $dots 3 }}{{ $dots = 3 }}{{ end }}
-        {{ $helpOut = printf "%s<span class='row' id='terminal'><span id='dir'>%s</span> %s %s</span>" $helpOut .cmd (strings.Repeat $dots ".") .desc }}
-        {{ $helpPlain = printf "%s%s %s %s\n" $helpPlain .cmd (strings.Repeat $dots ".") .desc }}
+    {{/* Laid out like bash's own `help`: a banner, then the synopsis of every
+         listed command in columns (CSS columns, so a phone gets one column and
+         the monitor three). The commands come from data/shell.yaml; the desk
+         scene adds its own to the grid at run time. Lines stay under 64
+         characters, which is what fits the monitors on the desk. */}}
+    {{ $sh := .Site.Data.shell }}
+    {{ $helpOut := printf "<span class='help'><span id='terminal'>%s\nThese shell commands are defined internally.  Type `help name'\nto find out more about the command `name'.</span><span class='cols' id='terminal'>" (htmlEscape $sh.banner) }}
+    {{ range sort $sh.commands "name" }}
+        {{ if .listed }}
+            {{ $u := split .usage " " }}
+            {{ $helpOut = printf "%s<span><span id='dir'>%s</span>%s</span>" $helpOut (htmlEscape (index $u 0)) (htmlEscape (strings.TrimPrefix (index $u 0) .usage)) }}
+        {{ end }}
     {{ end }}
-    {{ $helpOut = printf "%s</span>" $helpOut }}
+    {{ $helpOut = printf "%s</span><span id='terminal'>Not sure where to start?  Try `ls', then `cat %s'.</span></span>" $helpOut $t.profile }}
 
     {{ $steps = $steps | append (dict
         "anim" true
         "ps1" $ps1Dir
         "cmd" "<span id='terminal'>help</span>"
-        "out" $helpOut
-        "plain" $helpPlain) }}
+        "key" "help"
+        "out" $helpOut) }}
 
     {{/* --- trailing prompt, left blinking ------------------------------- */}}
     {{ $steps = $steps | append (dict "anim" true "ps1" $ps1Dir "cmd" "" "out" "") }}
 
+    {{/* --- the file system the shell walks -------------------------------
+         ~/<workDir> holds the profile, one directory per tree (its entries are
+         links) and the file of any tree that is displayed with `cat <file>`. */}}
+    {{ $fsTrees := slice }}
+    {{ range .Site.Params.Trees }}
+        {{ $entries := slice }}
+        {{ range .files }}
+            {{ $link := index . 1 }}
+            {{ with $.Site.GetPage $link }}{{ $link = .Permalink }}{{ end }}
+            {{ $desc := "" }}
+            {{ if gt (len .) 2 }}{{ $desc = index . 2 }}{{ end }}
+            {{ $entries = $entries | append (dict "name" (index . 0) "href" $link "desc" $desc) }}
+        {{ end }}
+        {{ $file := "" }}
+        {{ $c := default "" .command }}
+        {{ if hasPrefix $c "cat " }}{{ $file = trim (strings.TrimPrefix "cat " $c) " " }}{{ end }}
+        {{ $fsTrees = $fsTrees | append (dict "name" .folderName "file" $file "entries" $entries) }}
+    {{ end }}
+    {{ $fs := dict
+        "user"    $t.userName
+        "host"    $t.pcName
+        "workdir" $t.workDir
+        "profile" $t.profile
+        "built"   (now.Format "Jan _2 15:04")
+        "trees"   $fsTrees }}
+
     {{ partial "typeIndex.html" (dict
         "context"      .
         "steps"        $steps
+        "fs"           $fs
+        "commands"     $sh.commands
         "ps1delay"     .Site.Params.Terminal.ps1Delay
         "stdoutdelay"  .Site.Params.Terminal.stdoutDelay
         "commanddelay" .Site.Params.Terminal.commandDelay
