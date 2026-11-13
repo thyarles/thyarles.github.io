@@ -1237,7 +1237,7 @@ setTimeout(function () {
 
         BIN.help = function (a) {
             if (!a.length) {
-                if (PAGE.help) emit(helpHtml(PAGE.help));
+                if (PAGE.help) emit(PAGE.help);
                 else say(esc(DOCS.map(function (d) { return " " + d.usage; }).join("\n")));
                 return 0;
             }
@@ -1625,7 +1625,8 @@ setTimeout(function () {
         if (window.CSOS_GATE) await window.CSOS_GATE;
         armSkip();
 
-        /* the `help` the intro types is the one the prompt will print */
+        /* `help` gains the desk scene's commands once, here, so the intro (when
+           it is set to type it) and the prompt print the same grid */
         STEPS.forEach(function (s) { if (s.key === "help") s.out = helpHtml(s.out); });
 
         await sleep(CFG.startPause);

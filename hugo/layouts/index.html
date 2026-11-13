@@ -183,7 +183,7 @@
         "out" (printf "<span class='ls'>%s</span>" (trim $lsOut " "))
         "plain" (printf "%s\n" (trim $lsPlain " "))) }}
 
-    {{/* --- help (still the last command the intro types) ---------------- */}}
+    {{/* --- help (typed on demand; the intro no longer runs it) ----------- */}}
     {{/* Laid out like bash's own `help`: a banner, then the synopsis of every
          listed command in columns (CSS columns, so a phone gets one column and
          the monitor three). The commands come from data/shell.yaml; the desk
@@ -200,7 +200,7 @@
     {{ $helpOut = printf "%s</span><span id='terminal'>Not sure where to start?  Try `ls', then `cat %s'.</span></span>" $helpOut $t.profile }}
 
     {{ $steps = $steps | append (dict
-        "anim" true
+        "anim" false
         "ps1" $ps1Dir
         "cmd" "<span id='terminal'>help</span>"
         "key" "help"
