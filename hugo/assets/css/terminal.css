@@ -115,9 +115,37 @@ body {
 /* tree blocks keep their dot leaders aligned but still wrap on a phone */
 #content .tree { white-space: pre-wrap; }
 
+/* A tree and `help` are made of block rows. As inline-blocks filling the line
+   they still stand alone, but the line break after them ends their own line
+   instead of adding an empty one, so every output is followed by exactly one
+   blank line, whatever it is made of. */
+#content .tree,
+#content .help {
+    display: inline-block;
+    width: 100%;
+    vertical-align: top;
+}
+
 /* `ls` prints one wrapping line of entries; pre-wrap is what keeps the column
    gaps between them and still lets the line break on a narrow screen */
 #content .ls { white-space: pre-wrap; }
+
+/* `help`: a banner, the synopses in as many columns as fit (one on a phone),
+   and a closing line. Column-major, like the grid bash prints. */
+#content .help { white-space: pre-wrap; }
+#content .help > span { display: block; }
+
+#content .help .cols {
+    columns: 22ch;
+    column-gap: 2ch;
+    margin: 1em 0;
+    padding-left: 1ch;
+}
+
+#content .help .cols > span {
+    display: block;
+    break-inside: avoid;
+}
 
 #content a {
     color: #66d9ef;

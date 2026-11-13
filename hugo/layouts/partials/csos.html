@@ -36,7 +36,7 @@ window.CSOS_ASSETS = {{ "hugo/assets/" | absURL }};
 
 <style>
 #desk, #box, #toast { display: none; }
-html.csos #desk { display: flex; }
+html.csos #desk { display: block; }
 html.csos #box:not(.hidden) { display: flex; }
 html.csos #toast:not(.hidden) { display: block; }
 /* the terminal is only visible once it sits inside the monitor */
@@ -57,10 +57,22 @@ html.csos[data-theme] #screen #content #user{color:var(--ok)}
 html.csos[data-theme] #screen #content .tw:after{color:var(--ok)}
 
 /* ---------- desk scene ---------- */
-#desk{position:fixed;inset:0;align-items:center;justify-content:center;overflow:hidden;background:#111}
+/* The photo covers the page the way background-size: cover would, but only as
+   far as the part that matters allows. Each desk marks the band of its photo
+   that must stay in view, as fractions of the photo: --f0..--f1 from the top
+   (monitors, stickers, modem, the pictures on the wall) and --x0..--x1 from
+   the left (monitors and stickers). The crop stays centred while that keeps
+   the band whole and slides when it would not; once the screen is so wide (or
+   so narrow) that the band cannot fit at all, the photo stops growing and a
+   blurred copy of itself fills what is left. */
+#desk{position:fixed;inset:0;overflow:hidden;background:#111;--f0:.03;--f1:.78;--x0:.2;--x1:.85;
+  --w:min(max(100vw,177.78vh),calc(177.78vh/(var(--f1) - var(--f0))),calc(100vw/(var(--x1) - var(--x0))));--h:calc(var(--w)*.5625)}
+#desk::before{content:"";position:absolute;inset:-8vh;background:var(--pc,none) center/cover;filter:blur(5vh) brightness(.45)}
 #desk *,#box *{box-sizing:border-box}
 #desk button{font-family:inherit;color:inherit;cursor:pointer}
-#crt{position:relative;flex:none;width:max(100vw,177.78vh);aspect-ratio:16/9;container-type:inline-size}
+#crt{position:absolute;width:var(--w);aspect-ratio:16/9;container-type:inline-size;box-shadow:0 0 7vh 1vh #000c;
+  left:calc(-1*clamp(var(--x1)*var(--w) - 100vw,(var(--w) - 100vw)/2,var(--x0)*var(--w)));
+  top:calc(-1*clamp(var(--f1)*var(--h) - 100vh,(var(--h) - 100vh)/2,var(--f0)*var(--h)))}
 #crt>img.pc{position:absolute;inset:0;width:100%;height:100%;user-select:none;-webkit-user-drag:none}
 .mon{position:absolute;background:linear-gradient(135deg,#0b0d0c 0 46%,#131615 46% 54%,#090a0a 54%);overflow:hidden;color:#b8ffc6;line-height:1.35;border-radius:.35cqw;cursor:pointer}
 .mon.on{cursor:default}
@@ -104,6 +116,7 @@ html.csos[data-theme] #screen #content .tw:after{color:var(--ok)}
 #o-modem.on i{animation:bl .2s infinite alternate}#o-modem.on i:nth-child(2n){animation-delay:.1s}
 @keyframes bl{to{background:#f33;box-shadow:0 0 5px #f33}}
 /* scene: iMac by the window */
+[data-scene=imac] #desk{--f0:.03;--f1:.77;--x0:.3;--x1:.81}
 [data-scene=imac] #screen{left:31.05%;top:4.5%;width:48.45%;height:53.3%;font-size:1cqw;padding:1.6cqw 2.2cqw}
 [data-scene=imac] #tux{left:76.5%;top:59%;width:2.55cqw}
 [data-scene=imac] #cslogo{left:32%;top:60%;width:1.325cqw}
@@ -112,6 +125,7 @@ html.csos[data-theme] #screen #content .tw:after{color:var(--ok)}
 [data-scene=imac] #o-note{left:95.2%;top:16.5%;width:4.2%}
 [data-scene=imac] #o-modem{left:69%;top:70.6%;width:11.5%}
 /* scene: two monitors */
+[data-scene=dual] #desk{--f0:.03;--f1:.81;--x0:.17;--x1:.88}
 [data-scene=dual] #screen{left:17.7%;top:22.6%;width:33.9%;height:35.7%;font-size:.72cqw;padding:1cqw 1.3cqw}
 [data-scene=dual] #screen2{display:flex;left:52.2%;top:22.3%;width:35.2%;height:36.8%}
 [data-scene=dual] #tux{left:71.5%;top:73.7%;width:2.5cqw}
@@ -218,7 +232,7 @@ screen1.addEventListener("click", () => { if (!inTerm) boot(); });
 const SCENES = ["imac","dual"];
 /* each desk names the tab; phones and crawlers keep the <title> from head.html */
 const TITLES = {imac:"Home - Charles HG Santos [Coder]", dual:"Work - Charles Santos [DevOps Leader]"};
-function setScene(n){ if (SCENES.indexOf(n) < 0) n = SCENES[0]; document.documentElement.dataset.scene = n; $("#pc").src = IMG+"desk/setup-"+n+".webp"; document.title = TITLES[n]; }
+function setScene(n){ if (SCENES.indexOf(n) < 0) n = SCENES[0]; document.documentElement.dataset.scene = n; const src = IMG+"desk/setup-"+n+".webp"; $("#pc").src = src; $("#desk").style.setProperty("--pc", "url('"+src+"')"); document.title = TITLES[n]; }
 const swapScene = () => setScene(SCENES[(SCENES.indexOf(document.documentElement.dataset.scene)+1)%SCENES.length]);
 /* capture phase: this has to see the key before the terminal's own input does */
 window.addEventListener("keydown", e => {
@@ -267,21 +281,20 @@ function openFile(n){ const p = FILES[n]; if (!p) return false; show("imv — "+
 function closeViewer(){ const m = $("#mview"); if (m) m.remove(); }
 
 /* ---------- extra commands for the terminal (hooked from partials/typeIndex.html) ---------- */
-const S = {en:{who:"Charles Santos — hacker (2001 definition), builder of cheap Braille printers,\nSRE/K8s person, PhD student. Shy, allegedly.",loc:"Locale set. Everything is in English again.",nf:"not found"},
-           pt:{who:"Charles Santos — hacker (definição de 2001), construtor de impressoras Braille baratas,\nSRE/K8s, doutorando. Tímido, dizem.",loc:"Locale alterado. Agora é tudo em português, uai.",nf:"não encontrado"}};
+const S = {en:{who:"Charles Santos — hacker (2001 definition), builder of cheap Braille printers,\nSRE/K8s person, PhD student. Shy, allegedly.",loc:"Locale set. Everything is in English again."},
+           pt:{who:"Charles Santos — hacker (definição de 2001), construtor de impressoras Braille baratas,\nSRE/K8s, doutorando. Tímido, dizem.",loc:"Locale alterado. Agora é tudo em português, uai."}};
 const FORT = ["Tudo dá certo pra mim até quando não dá.","\"Se o Charles deu OK, pode confiar.\" — a colleague","Testing shows the presence, not the absence of bugs. — Dijkstra","You do not need a book to teach you how to act like a jerk.","Fui comprada em 2007... e ainda escrevo! — a pen","To be fluent you must be able to write \"Wednesday\" properly."];
 const BR = "⠁⠃⠉⠙⠑⠋⠛⠓⠊⠚⠅⠇⠍⠝⠕⠏⠟⠗⠎⠞⠥⠧⠺⠭⠽⠵";
 const THEMES = ["","tokyo","gruvbox","catppuccin","lime","crt"];
 const pre = h => "<span id='terminal' style='white-space:pre-wrap'>" + h + "</span>";
 const later = ms => new Promise(r => setTimeout(r, ms));
 
-window.CSOS_CMD = function (cmd, raw, api) {
+/* argv is the command line already split the way a shell splits it (quotes gone).
+   undefined = not one of mine, the terminal's own shell takes it from there. */
+window.CSOS_CMD = function (argv, api) {
   if (!inTerm) return undefined;
-  const a = cmd.split(" "), c = a.shift(), esc = api.esc;
+  const a = argv.slice(1), c = argv[0], esc = api.esc;
   switch (c) {
-    case "open":
-      if (!a[0]) return pre("usage: open &lt;file&gt;   (see ls)");
-      return openFile(a[0]) ? "" : pre("open: " + esc(a[0]) + ": " + S[lang].nf);
     case "cat":
       if (a.length) return undefined;                 /* real files are the terminal's own business */
       openFile("eve.jpg"); return pre("cat: no file given, showing the cat.");
@@ -290,9 +303,9 @@ window.CSOS_CMD = function (cmd, raw, api) {
     case "man":
       if (a[0] === "ontology") { openFile("ontology.png"); return ""; }
       if (a[0] === "hacker") return pre("<span id='dir'>HACKER(2001)</span>\n\nNAME\n   hacker — someone who stayed up all night to understand how it works.\n\nSEE ALSO\n   Correio Braziliense, 6 Jul 2001, “Por trás do nick”");
-      return pre("No manual entry for " + esc(a[0] || "nothing"));
+      return undefined;                               /* the shell has manuals of its own */
     case "braille": {
-      const t = a.join(" ").replace(/"/g,"").toLowerCase(); if (!t) return pre("usage: braille \"text\"");
+      const t = a.join(" ").toLowerCase(); if (!t) return pre("usage: braille \"text\"");
       const el = api.raw("<span id='terminal' style='font-size:1.6em'></span>").firstChild;
       return (async () => { for (const ch of t) { const k = ch.charCodeAt(0)-97; el.textContent += k>=0&&k<26 ? BR[k] : ch===" " ? "⠀" : ch; noise(.05,.09,0,700); api.stick(); await later(90); } api.br(); return ""; })();
     }
@@ -319,22 +332,21 @@ window.CSOS_CMD = function (cmd, raw, api) {
       tone(520+i*90,.05); return pre("theme: " + (THEMES[i] || "default"));
     }
     case "cs": return pre("Counter-Terrorists win. (wrong CS)");
-    case "clear": api.clear(); return "";
     case "shutdown": case "exit": case "poweroff": case "logout": shutdown(); return "";
   }
   return undefined;
 };
-/* what `help` and `ls` add when the terminal runs on this desk */
-window.CSOS_EXTRA = function (cmd) {
-  if (!inTerm) return "";
-  if (cmd === "help") {
-    const rows = [["open &lt;file&gt;","a picture (see ls)"],["theme","next colour theme"],["fortune","words to live by"],["exit","turn the computer off"]];
-    return "<span class='tree' style='--hang: 22ch'><strong><span id='terminal'><br>on this machine</span></strong>" +
-      rows.map(r => "<span class='row' id='terminal'><span id='dir'>" + r[0] + "</span> " + ".".repeat(Math.max(3, 18 - r[0].replace(/&lt;|&gt;/g,"x").length)) + " " + r[1] + "</span>").join("") + "</span>";
-  }
-  if (/^ls(\s|$)/.test(cmd)) return "<br><span class='ls'><span id='terminal'>" + Object.keys(FILES).join("  ") + "</span></span>";
-  return "";
-};
+/* what this desk adds to the terminal's shell: documented commands (`help`, Tab,
+   /bin), the pictures (they become ~/me/pictures), the viewer `open` hands them to,
+   and the locale behind $LANG */
+window.CSOS_HELP = [
+  {name:"exit", usage:"exit", short:"Turn the computer off.", long:"`logout', `poweroff' and `shutdown' do the same.", listed:true, builtin:true},
+  {name:"fortune", usage:"fortune", short:"Print words to live by.", listed:true, builtin:false},
+  {name:"theme", usage:"theme", short:"Switch to the next colour theme.", long:"There are six, in a loop.", listed:true, builtin:false}
+];
+window.CSOS_PICS = Object.keys(FILES);
+window.CSOS_VIEW = n => inTerm && openFile(n);
+window.CSOS_LANG = () => lang === "pt" ? "pt_BR" : "en_US";
 
 dressDesk();
 setScene(Q.get("scene") || SCENES[Math.random()*SCENES.length|0]);

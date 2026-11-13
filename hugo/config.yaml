@@ -63,16 +63,17 @@ Params:
       autoScroll: true     # follow the bottom unless the visitor scrolls up
       skippable: true      # a click or a keypress finishes it immediately
 
-    # Note: once the animation finishes the prompt accepts real input. What it
-    # accepts is every step the session is built from — the profile, neofetch,
-    # every tree, `ls` and `help` — whether or not the opening animation typed
-    # it out, plus `echo`. `help` prints that list and so does the refusal
-    # hint, both built from the same place, so neither needs updating when a
-    # tree is added. Anything else prints the `denied` message.
+    # Note: once the animation finishes the prompt is a small shell. It walks
+    # a read-only file system built from this file: ~/<workDir> holds the
+    # profile, one directory per tree (its entries are links) and the file of
+    # any tree shown with `cat <file>`, so `ls`, `cd`, `cat`, `tree`, `open`
+    # and Tab need no updating when a tree is added. The documented commands
+    # live in data/shell.yaml. A name that is no command prints
+    # "bash: <name>: <denied>".
     # (And three things that are on no list at all: find them or don't.)
     shell:
       enabled: true
-      denied: denied
+      denied: command not found
       matrixSeconds: 7     # how long the rain falls before it stops by itself
 
     description: |
