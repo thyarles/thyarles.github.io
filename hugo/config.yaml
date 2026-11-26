@@ -1,4 +1,4 @@
-baseURL: https://www.provadigital.com.br/
+baseURL: https://provadigital.com.br/
 languageCode: en-us
 title: Charles Santos
 theme: bash
@@ -153,11 +153,11 @@ Params:
       desc: papers and slides
       files:
         - - Low cost Braille printer, 2008
-          - https://www.provadigital.com.br/docs/braille.pdf
+          - https://provadigital.com.br/docs/braille.pdf
         - - Low cost Braille printer, slides
-          - https://www.provadigital.com.br/docs/braille-slides.pdf
+          - https://provadigital.com.br/docs/braille-slides.pdf
         - - Proposal for NCM, 2011
-          - https://www.provadigital.com.br/docs/ncm.pdf
+          - https://provadigital.com.br/docs/ncm.pdf
         - - "How easy is to large language models hallucinate?, 2024"
           - https://www.researchgate.net/profile/Charles-Santos-10/publication/385553867_How_easy_is_to_large_language_models_hallucinate/links/679eafe896e7fb48b9ad762b/How-easy-is-to-large-language-models-hallucinate.pdf
 
