@@ -100,6 +100,19 @@ html.csos[data-theme] #screen #content .tw:after{color:var(--ok)}
 #mview{position:absolute;inset:0;z-index:6;background:#000;display:flex;align-items:center;justify-content:center;cursor:pointer}
 #mview img,#mview video{width:auto!important;opacity:1!important;transition:none!important;max-width:100%;max-height:100%}
 #mview span{opacity:1!important;letter-spacing:0;font-weight:normal;position:absolute;left:0;bottom:0;background:#000a;color:#ccc;font:.7cqw monospace;padding:.2cqw .6cqw}
+/* The box a monitor floats around when nothing is plugged in. It is the only
+   word on the desk that says the computer can be switched on, so it waits a
+   few seconds first: whoever clicks around on their own never sees it. The
+   drift is two transforms, one per axis, each on its own wrapper. */
+#standby,#standby div{position:absolute;inset:0}
+#standby{overflow:hidden;z-index:1;visibility:hidden;opacity:0}
+#standby p{position:absolute;left:1cqw;top:1cqw;width:18cqw;margin:0;padding:.7cqw .9cqw;background:#191b1d;border:1px solid #43474b;border-radius:.2cqw;color:#aeb4ba;font:.9cqw/1.45 system-ui,sans-serif;letter-spacing:0;white-space:nowrap}
+#standby b{display:block;color:#e4e7ea;font-size:1.2cqw;font-weight:600}
+#desk.idle .mon:not(.on) #standby{visibility:visible;opacity:1;transition:opacity 1.5s}
+#desk.idle .mon:not(.on) #standby>div{animation:osdx 19s linear infinite alternate}
+#desk.idle .mon:not(.on) #standby>div>div{animation:osdy 13s linear infinite alternate}
+@keyframes osdx{to{transform:translateX(calc(100% - 20cqw))}}
+@keyframes osdy{to{transform:translateY(calc(100% - 6.7cqw))}}
 #screen2{display:none;align-items:center;justify-content:center;flex-direction:column;gap:1cqw;font:bold 1.6cqw monospace;letter-spacing:.3cqw}
 #screen2 img{width:22%;opacity:0;transition:opacity 1.5s .8s}#screen2 span{opacity:0;transition:opacity 1.5s 1.4s}
 #screen2.on img,#screen2.on span{opacity:.9}
@@ -148,6 +161,9 @@ html.csos[data-theme] #screen #content .tw:after{color:var(--ok)}
 #toast a{color:#9f9}
 @media (prefers-reduced-motion: reduce){
     .mon.on::before,.mon.shut #terminal-window,#o-modem.on i{animation:none}
+    /* no drift: the box sits still in the middle of the glass */
+    #desk.idle .mon:not(.on) #standby>div,#desk.idle .mon:not(.on) #standby>div>div{animation:none}
+    #standby p{left:50%;top:50%;transform:translate(-50%,-50%)}
 }
 </style>
 
@@ -158,7 +174,7 @@ html.csos[data-theme] #screen #content .tw:after{color:var(--ok)}
     <button class="obj frame" id="o-mom"><img alt=""></button>
     <button class="obj paper" id="o-note"><img alt=""></button>
     <button class="obj" id="o-modem" title="modem">56K&nbsp;<i></i><i></i><i></i><i></i> github</button>
-    <div class="mon" id="screen"><pre id="scr"></pre></div>
+    <div class="mon" id="screen"><pre id="scr"></pre><div id="standby"><div><div><p><b></b><span></span></p></div></div></div></div>
     <div class="mon" id="screen2"><img data-src="brand/cs-logo.svg" alt=""><span>CS OS</span></div>
     <span class="stk" id="cslogo"><img data-src="brand/cs-logo.svg" alt=""></span>
     <button id="tux" title="Tux"><img data-src="brand/tux.webp" alt=""></button>
@@ -197,6 +213,7 @@ const put = t => { scr.textContent += t; screen1.scrollTop = 1e6; };
 async function typeOut(t, ms=45){ for (const ch of t){ put(ch); if(!skip) key(); await sleep(ms+Math.random()*40); } }
 async function boot(){
   if (booted) return; booted = true; if (reduced) skip = true;
+  clearTimeout(standby.t); $("#desk").classList.remove("idle");
   $("#hint").textContent = skip ? "" : "press any key to skip";
   screen1.classList.add("on"); $("#screen2").classList.add("on"); powerSound(); await sleep(900);
   put("PIXECOL BIOS v0.8 (C) a teenager with big plans\nCPU: Human 1x @ 1 coffee/h\n"); await sleep(500);
@@ -227,8 +244,19 @@ function shutdown(){
   window.CSOS_OFF = true; screen1.classList.add("shut");
   setTimeout(() => {
     document.body.append(termwin()); screen1.classList.remove("shut","term","on"); $("#screen2").classList.remove("on");
-    dressDesk(); inTerm = false; booted = false; skip = false; shutdown.busy = false;
+    dressDesk(); inTerm = false; booted = false; skip = false; shutdown.busy = false; standby();
   }, 800);
+}
+/* The computer is off: after a while of nothing, the monitor says how to switch
+   it on. In the language of the last `locale`, which outlives a power-off. */
+const OSD = { en: ["No signal", "Click or press Enter to power on"], pt: ["Sem sinal", "Clique ou tecle Enter para ligar"] };
+function standby(){
+  clearTimeout(standby.t); $("#desk").classList.remove("idle");
+  standby.t = setTimeout(() => {
+    if (booted) return;
+    $("#standby b").textContent = OSD[lang][0]; $("#standby span").textContent = OSD[lang][1];
+    $("#desk").classList.add("idle");
+  }, 4000);
 }
 $("#tux").onclick = $("#screen2").onclick = boot;
 screen1.addEventListener("click", () => { if (!inTerm) boot(); });
@@ -249,8 +277,13 @@ window.addEventListener("keydown", e => {
     if (mv.parentNode === screen1) { if (performance.now() - mv.dataset.t > 250) { closeViewer(); e.preventDefault(); e.stopPropagation(); } return; }
     if (e.key === "Escape") { closeViewer(); return; }
   }
-  if (booted && !inTerm) { skip = true; $("#hint").textContent = ""; return; }
-  if (!booted && e.key.toLowerCase() === "t") swapScene();
+  /* a held key repeats: the Enter that switched the computer on is not a skip */
+  if (booted && !inTerm) { if (!e.repeat) { skip = true; $("#hint").textContent = ""; } return; }
+  if (booted) return;
+  if (e.key.toLowerCase() === "t") swapScene();
+  /* Enter or Space is the power button, unless it is pressing a button of the desk (a frame, Tux).
+     After a power-off the focus can still be in the terminal's hidden input, which is no reason to refuse. */
+  else if ((e.key === "Enter" || e.key === " ") && !e.repeat && !(e.target.closest && e.target.closest("#desk button"))) { e.preventDefault(); boot(); }
 }, true);
 
 /* ---------- pictures on the wall (random every visit and every power-off) ---------- */
@@ -356,6 +389,7 @@ window.CSOS_LANG = () => lang === "pt" ? "pt_BR" : "en_US";
 dressDesk();
 setScene(Q.get("scene") || SCENES[Math.random()*SCENES.length|0]);
 window.CSOS_UP = true;
+standby();
 /* test helpers: ?boot skips straight to the terminal, ?run=cmd;cmd then types those */
 if (Q.has("boot")) setTimeout(async () => {
   skip = true; await boot();
