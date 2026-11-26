@@ -706,6 +706,11 @@ setTimeout(function () {
         }
 
         const HOME = pathOf(homeDir);
+        /* Read off the tree like HOME, never written out: a search engine
+           follows whatever in a script reads like a path, and this one was
+           being crawled as a page of the site (and reported as a 404). */
+        const BINDIR = pathOf(bin);
+        function inBin(name) { return BINDIR + "/" + name; }
         const ENOENT = "No such file or directory";
         const ENOTDIR = "Not a directory";
 
@@ -749,9 +754,9 @@ setTimeout(function () {
                 case "HOME":     return HOME;
                 case "PWD":      return pathOf(cwd);
                 case "OLDPWD":   return pathOf(oldpwd);
-                case "SHELL":    return "/bin/bash";
+                case "SHELL":    return inBin("bash");
                 case "HOSTNAME": return FS.host;
-                case "PATH":     return "/bin";
+                case "PATH":     return BINDIR;
                 case "TERM":     return "xterm-256color";
                 case "LANG":
                     return (window.CSOS_LANG ? window.CSOS_LANG() : "en_US") + ".UTF-8";
@@ -1346,7 +1351,7 @@ setTimeout(function () {
         BIN.which = function (a) {
             let code = a.length ? 0 : 1;
             a.forEach(function (n) {
-                if (bin.kids.has(n)) say(esc("/bin/" + n)); else code = 1;
+                if (bin.kids.has(n)) say(esc(inBin(n))); else code = 1;
             });
             return code;
         };
@@ -1356,7 +1361,7 @@ setTimeout(function () {
             a.forEach(function (n) {
                 const d = DOC.get(n);
                 if (d && d.builtin) say(esc(n + " is a shell builtin"));
-                else if (bin.kids.has(n)) say(esc(n + " is /bin/" + n));
+                else if (bin.kids.has(n)) say(esc(n + " is " + inBin(n)));
                 else code = fail("bash: type: " + n + ": not found");
             });
             return code;
