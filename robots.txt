@@ -1,3 +1,3 @@
 User-agent: *
 Allow: /
-Sitemap: https://www.provadigital.com.br/sitemap.xml
+Sitemap: https://provadigital.com.br/sitemap.xml
